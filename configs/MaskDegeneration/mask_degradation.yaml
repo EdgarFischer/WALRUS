@@ -1,0 +1,33 @@
+training_config: "../Training/train_7T.yaml"
+
+device: "cuda:0"
+
+models:
+  - label: "Y16_S1"
+    path: "../../models/YNet_ablation"
+    checkpoint: "model_best.pt"
+  - label: "Y16_S2"
+    path: "../../models/YNet_ablation_Seed_2"
+    checkpoint: "model_best.pt"
+  - label: "Y16_S3"
+    path: "../../models/YNet_ablation_Seed_3"
+    checkpoint: "model_best.pt"
+
+simulation:
+  subjects: ["Vol1_UCSF", "Vol2_UCSF", "Vol3_UCSF", "Vol4_UCSF", "Vol5_UCSF"]
+  n_spectra_per_subject: 100000
+  batch_size: 2000
+  seed: 12345
+
+mask_degradation:
+  # Positive: lipid mask grows. Negative: brain mask grows and lipid shrinks.
+  dilations: [-4, -3, -2, -1, 0, 1, 2, 3, 4]
+  operator_target: 0.99
+
+data:
+  input_data: "OriginalData/data.npy"
+  brain_mask: "masks/brain_mask.npy"
+  lipid_mask: "masks/lipid_mask.npy"
+
+output:
+  path: "../../results/MaskDegeneration/mask_degradation_3seeds_5subjects.h5"

@@ -1,5 +1,5 @@
 training_config: "../Training/train_7T.yaml"
-device: "cuda:2"
+device: "cuda:3"
 
 simulation:
   subjects:
@@ -8,7 +8,7 @@ simulation:
     - "Vol3_UCSF"
     - "Vol4_UCSF"
     - "Vol5_UCSF"
-  n_spectra_per_subject: 10000
+  n_spectra_per_subject: 100000
   batch_size: 1000
   seed: 20260908
 
@@ -22,12 +22,18 @@ models:
     family: "ynet"
     path: "../../models/YNet_ablation_Seed_2"
     checkpoint: "model_last.pt"
+    enabled: true
 
   - name: "YNet_seed3"
     family: "ynet"
     path: "../../models/YNet_ablation_Seed_3"
     checkpoint: "model_last.pt"
-    enabled: false
+    enabled: true
+
+  - name: "WALRUS"
+    family: "unet"
+    path: "../../models/7T_Final"
+    checkpoint: "model_last.pt"
 
   - name: "UNet_seed1"
     family: "unet"
@@ -43,7 +49,7 @@ models:
     family: "unet"
     path: "../../models/UNet_ablation_Seed_3"
     checkpoint: "model_last.pt"
-    enabled: false
+    enabled: true
 
   - name: "UNet_parameter_matched_seed1"
     family: "unet_parameter_matched"
@@ -59,7 +65,7 @@ models:
     family: "unet_parameter_matched"
     path: "../../models/UNet_ablation_parameter_matched_Seed_3"
     checkpoint: "model_last.pt"
-    enabled: false
+    enabled: true
 
 output:
-  path: "../../results/PaperFig1/model_comparison.h5"
+  path: "../../results/PaperFig1/model_comparison_7T.h5"

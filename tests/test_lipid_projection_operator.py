@@ -3,9 +3,48 @@ import pytest
 import torch
 
 from walinet.training_data.lipid_removal import (
+    DEFAULT_TRACE_TOLERANCE,
     compute_lipid_projection_operator,
     find_beta_bisect,
 )
+
+
+def test_default_trace_tolerance_is_one_e_minus_four() -> None:
+    import inspect
+
+    assert DEFAULT_TRACE_TOLERANCE == 1e-4
+    assert inspect.signature(find_beta_bisect).parameters["tol"].default == 1e-4
+    assert (
+        inspect.signature(compute_lipid_projection_operator)
+        .parameters["tol"]
+        .default
+        == 1e-4
+    )
+
+
+def test_target_one_returns_exact_zero_operator() -> None:
+    rng = np.random.default_rng(987)
+    spectra = (
+        rng.normal(size=(3, 2, 1, 8))
+        + 1j * rng.normal(size=(3, 2, 1, 8))
+    ).astype(np.complex64)
+    lipid_mask = np.ones(spectra.shape[:-1], dtype=bool)
+
+    operator = compute_lipid_projection_operator(
+        spectra,
+        lipid_mask,
+        target=1.0,
+        method="eigenvalue",
+    )
+    beta, _ = find_beta_bisect(
+        spectra.reshape(-1, spectra.shape[-1]),
+        target=1.0,
+        method="eigenvalue",
+    )
+
+    assert beta == 0.0
+    assert operator.dtype == spectra.dtype
+    np.testing.assert_array_equal(operator, np.zeros_like(operator))
 
 
 def test_eigenvalue_beta_search_matches_legacy() -> None:

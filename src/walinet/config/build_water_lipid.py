@@ -511,7 +511,7 @@ def build_water_lipid_extraction_config(
         tol=float(
             lipid_projection_raw.get(
                 "tol",
-                5e-3,
+                1e-3,
             )
         ),
         max_iter=int(

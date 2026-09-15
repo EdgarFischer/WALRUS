@@ -1,6 +1,6 @@
 run:
-  name: "UNet_ablation_parameter_matched_fixed_traingset_Seed_3"
-  seed: 2
+  name: "YNet_ablation_Seed_2"
+  seed: 1
   gpu: 2
 
 data:
@@ -20,9 +20,6 @@ output:
   overwrite: false
 
 training:
-  # "on_the_fly" keeps the original behavior. "fixed" generates a
-  # subject-balanced pool once and reuses it for all optimizer steps.
-  mode: "fixed"
   batch_size: 2000
   epochs: 500
 
@@ -31,10 +28,6 @@ training:
 
   # Print information for every individual batch.
   verbose: false
-
-  fixed:
-    n_spectra_per_subject: 100000
-    seed: 24680
 
 validation:
   # A fixed synthetic validation dataset is generated once at startup
@@ -51,9 +44,9 @@ scheduler:
   gamma: 0.5
 
 model:
-  architecture: "unet"  # "unet" or "ynet"
+  architecture: "ynet"  # "unet" or "ynet"
   n_layers: 4
-  n_filters: 20
+  n_filters: 16
   in_channels: 2
   out_channels: 2
   dropout: 0.0

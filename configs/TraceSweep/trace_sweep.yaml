@@ -1,0 +1,23 @@
+training_config: "../Training/train_7T.yaml"
+device: "cuda:0"
+
+models:
+  - {label: "Y16_S1", path: "../../models/YNet_ablation", checkpoint: "model_best.pt"}
+  - {label: "Y16_S2", path: "../../models/YNet_ablation_Seed_2", checkpoint: "model_best.pt"}
+  - {label: "Y16_S3", path: "../../models/YNet_ablation_Seed_3", checkpoint: "model_best.pt"}
+
+simulation:
+  subjects: ["Vol1_UCSF", "Vol2_UCSF", "Vol3_UCSF", "Vol4_UCSF", "Vol5_UCSF"]
+  n_spectra_per_subject: 100000
+  batch_size: 2000
+  seed: 12345
+
+trace_sweep:
+  targets: [0.91, 0.92, 0.93, 0.94, 0.95, 0.96, 0.97, 0.98, 0.99, 1.00]
+
+data:
+  input_data: "OriginalData/data.npy"
+  lipid_mask: "masks/lipid_mask.npy"
+
+output:
+  path: "../../results/TraceSweep/trace_sweep_3seeds_5subjects.h5"

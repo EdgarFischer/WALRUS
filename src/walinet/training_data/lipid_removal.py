@@ -3,6 +3,9 @@ import numpy as np
 import torch
 
 
+DEFAULT_TRACE_TOLERANCE = 1e-4
+
+
 def _resolve_method(method: str) -> str:
     if method == "auto":
         return "gpu" if torch.cuda.is_available() else "eigenvalue"
@@ -23,7 +26,7 @@ def diag_mean(beta: float, M: np.ndarray) -> float:
 def find_beta_bisect(
     lipid_rf: np.ndarray,
     target: float = 0.938,
-    tol: float = 5e-3,
+    tol: float = DEFAULT_TRACE_TOLERANCE,
     max_iter: int = 60,
     method: str = "auto",
     gpu_index: int = 0,
@@ -67,6 +70,10 @@ def find_beta_bisect(
     else:
         M = lipid_rf.conj().T @ lipid_rf
 
+    # Analytic endpoint: diag_mean(0) = 1 exactly.
+    if target == 1.0:
+        return 0.0, M
+
     if method == "legacy":
         evaluate = lambda beta: diag_mean(beta, M)
     elif method == "eigenvalue":
@@ -109,7 +116,7 @@ def compute_lipid_projection_operator(
     lipid_mask: np.ndarray,
     max_n_iter: int = 60,
     target: float = 0.938,
-    tol: float = 5e-3,
+    tol: float = DEFAULT_TRACE_TOLERANCE,
     method: str = "auto",
     gpu_index: int = 0,
 ):
@@ -126,6 +133,16 @@ def compute_lipid_projection_operator(
 
     data_rf = spectra.reshape(-1, T)
     lipid_rf = data_rf[lipid_mask.flatten() > 0, :]
+
+    # For target 1, beta=0, rem_op=I, and therefore the lipid projection
+    # I-rem_op is analytically the exact zero operator.  Returning it directly
+    # avoids replacing this well-defined endpoint by a tolerance-level value.
+    if target == 1.0:
+        lipid_proj_operator_ff = np.zeros((T, T), dtype=lipid_rf.dtype)
+        msg = "Achieved diag-mean = 1.0000 at beta = 0.00e+00 (analytic)"
+        logging.info(msg)
+        print(msg)
+        return lipid_proj_operator_ff
 
     beta, M = find_beta_bisect(
         lipid_rf,

@@ -505,19 +505,14 @@ def _prepare_fids_for_length(
 
 def compute_lipid_projection_operators(
     *,
-    csi_fids: np.ndarray,
-    lipid_mask: np.ndarray,
+    lipid_fids: np.ndarray,
     cfg: WaterLipidExtractionConfig,
 ) -> dict[int, np.ndarray]:
     """
     Compute optional subject-specific lipid-projection operators.
 
-    The operators are computed from the original, non-water-
-    suppressed FIDs inside the lipid mask. This matches the
-    original WALINET preprocessing logic.
-
-    Only lipid-mask voxels are copied into the temporary array.
-    This avoids performing the FFT on the complete spatial volume.
+    The operators are computed from the water-suppressed lipid FIDs
+    used by the simulator.
     """
     if not cfg.lipid_projection.enabled:
         print(
@@ -525,29 +520,15 @@ def compute_lipid_projection_operators(
         )
         return {}
 
-    original_lipid_fids = np.asarray(
-        csi_fids[lipid_mask],
+    operator_lipid_fids = np.asarray(
+        lipid_fids,
         dtype=np.complex64,
     )
 
-    if original_lipid_fids.ndim != 2:
-        raise ValueError(
-            "Original lipid FIDs must have shape (N, T), "
-            f"but found {original_lipid_fids.shape}."
-        )
-
-    if original_lipid_fids.shape[0] == 0:
-        raise ValueError(
-            "No original lipid-mask FIDs are available "
-            "for projection-operator calculation."
-        )
-
-    if not np.all(
-        np.isfinite(original_lipid_fids)
-    ):
-        raise ValueError(
-            "Original lipid-mask FIDs contain NaN or Inf."
-        )
+    if operator_lipid_fids.ndim != 2 or operator_lipid_fids.shape[0] == 0:
+        raise ValueError("Water-suppressed lipid FIDs must have shape (N, T), N > 0.")
+    if not np.all(np.isfinite(operator_lipid_fids)):
+        raise ValueError("Water-suppressed lipid FIDs contain NaN or Inf.")
 
     operators: dict[int, np.ndarray] = {}
 
@@ -561,7 +542,7 @@ def compute_lipid_projection_operators(
         )
 
         prepared_fids = _prepare_fids_for_length(
-            original_lipid_fids,
+            operator_lipid_fids,
             n_timepoints=n_timepoints,
         )
 
@@ -955,7 +936,7 @@ def save_simulation_resources(
             )
             projection_group.attrs["fft_shifted"] = True
             projection_group.attrs["source"] = (
-                "original_csi_fids_in_lipid_mask"
+                "water_suppressed_lipid_fids"
             )
             projection_group.attrs[
                 "configured_n_timepoints"
@@ -1126,8 +1107,7 @@ def process_subject(
 
     lipid_projection_operators = (
         compute_lipid_projection_operators(
-            csi_fids=csi_fids,
-            lipid_mask=lipid_mask,
+            lipid_fids=lipid_fids,
             cfg=cfg,
         )
     )

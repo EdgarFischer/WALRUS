@@ -8,7 +8,7 @@ acquisition:
   n_timepoints: 288
 
   # Actually acquired FID samples before zero-filling.
-  min_acquired_n_timepoints: 144
+  min_acquired_n_timepoints: 288
   max_acquired_n_timepoints: 288
 
   # true:

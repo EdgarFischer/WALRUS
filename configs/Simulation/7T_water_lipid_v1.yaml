@@ -36,6 +36,6 @@ resources:
 lipid_projection:
   enabled: true
   n_timepoints: [840]
-  target: 0.938
-  tol: 0.005
+  target: 0.99
+  tol: 0.0001
   max_iter: 60
