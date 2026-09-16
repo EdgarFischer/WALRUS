@@ -14,7 +14,7 @@ import yaml
 from walinet.config.build import build_config
 from walinet.config.build_simulation import build_simulation_config
 from walinet.paper_figures.mask_degradation.pipeline import _load_ynet
-from walinet.paper_figures.paper_fig1.metrics import calculate_errors
+from walinet.paper_figures.paper_fig1.metrics import ALL_METRICS, calculate_errors
 from walinet.paper_figures.trace_sweep.config import load_config
 from walinet.training.training import forward_model
 from walinet.training_data.lcmodel_basis.acquisition import prepare_basis_for_acquisition
@@ -30,7 +30,7 @@ from walinet.training_data.spectrum_simulator import (
 )
 
 
-METRICS = ("nuisance_relative_l2", "metabolite_relative_l2")
+METRICS = ALL_METRICS
 
 
 def _load_yaml(path: Path) -> dict:
@@ -132,7 +132,7 @@ def run_evaluation(config_path: str | Path, *, overwrite: bool = False) -> Path:
 
     try:
         with h5py.File(temporary_path, "w") as h5:
-            h5.attrs["format"] = "walinet.trace_sweep.v1"
+            h5.attrs["format"] = "walinet.trace_sweep.v2"
             h5.attrs["seed"] = config.seed
             h5.attrs["n_spectra_per_subject"] = config.n_spectra_per_subject
             h5.attrs["operator_tolerance"] = DEFAULT_TRACE_TOLERANCE
@@ -226,15 +226,14 @@ def run_evaluation(config_path: str | Path, *, overwrite: bool = False) -> Path:
                                     network_l2=network_l2,
                                     architecture="ynet",
                                 )[:, :2, :]
-                                nuisance_error, metabolite_error = calculate_errors(
-                                    network_input=batch.network_input,
+                                errors = calculate_errors(
                                     true_nuisance=batch.network_target,
                                     predicted_nuisance=prediction,
+                                    clean_metabolite=(
+                                        batch.normalized_clean_metabolite_spectra
+                                    ),
                                 )
-                            for metric, tensor in (
-                                ("nuisance_relative_l2", nuisance_error),
-                                ("metabolite_relative_l2", metabolite_error),
-                            ):
+                            for metric, tensor in zip(METRICS, errors):
                                 values = tensor.cpu().numpy().astype(np.float32)
                                 target_group["models"][model_label][metric][written:stop] = values
                                 sums[metric][target][model_index] += np.sum(

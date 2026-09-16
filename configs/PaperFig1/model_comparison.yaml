@@ -68,4 +68,4 @@ models:
     enabled: true
 
 output:
-  path: "../../results/PaperFig1/model_comparison_7T.h5"
+  path: "../../results/PaperFig1/model_comparison_7T_clean_metabolite.h5"

@@ -23,7 +23,7 @@ from walinet.paper_figures.paper_fig1.config import (
     ModelSpec,
     load_evaluation_config,
 )
-from walinet.paper_figures.paper_fig1.metrics import calculate_errors
+from walinet.paper_figures.paper_fig1.metrics import ALL_METRICS, calculate_errors
 from walinet.training.training import forward_model
 from walinet.training_data.lcmodel_basis.acquisition import prepare_basis_for_acquisition
 from walinet.training_data.metabolite_simulation import MetaboliteSimulator
@@ -135,7 +135,7 @@ def _subject_simulator(
 
 
 def _prepare_output(h5: h5py.File, config: EvaluationConfig) -> None:
-    h5.attrs["format"] = "walinet.paper_fig1.model_comparison.v1"
+    h5.attrs["format"] = "walinet.paper_fig1.model_comparison.v2"
     h5.attrs["n_spectra_per_subject"] = config.n_spectra_per_subject
     h5.attrs["batch_size"] = config.batch_size
     h5.attrs["seed"] = config.seed
@@ -153,7 +153,7 @@ def _prepare_output(h5: h5py.File, config: EvaluationConfig) -> None:
             group.attrs["family"] = spec.family
             group.attrs["model_path"] = str(spec.path)
             group.attrs["checkpoint"] = spec.checkpoint
-            for metric in ("nuisance_relative_l2", "metabolite_relative_l2"):
+            for metric in ALL_METRICS:
                 group.create_dataset(
                     metric,
                     shape=(config.n_spectra_per_subject,),
@@ -224,19 +224,19 @@ def run_evaluation(config_path: str | Path, *, overwrite: bool = False) -> Path:
                                 network_l2=batch.network_l2,
                                 architecture=loaded.architecture,
                             )[:, :2, :]
-                            nuisance_error, metabolite_error = calculate_errors(
-                                network_input=batch.network_input,
+                            errors = calculate_errors(
                                 true_nuisance=batch.network_target,
                                 predicted_nuisance=prediction,
+                                clean_metabolite=(
+                                    batch.normalized_clean_metabolite_spectra
+                                ),
                             )
                         group = h5[f"subjects/{subject}/models/{loaded.spec.name}"]
                         stop = written + current_size
-                        group["nuisance_relative_l2"][written:stop] = (
-                            nuisance_error.detach().cpu().numpy().astype(np.float32)
-                        )
-                        group["metabolite_relative_l2"][written:stop] = (
-                            metabolite_error.detach().cpu().numpy().astype(np.float32)
-                        )
+                        for metric, values in zip(ALL_METRICS, errors):
+                            group[metric][written:stop] = (
+                                values.detach().cpu().numpy().astype(np.float32)
+                            )
 
                     written += current_size
                     h5.flush()
@@ -248,6 +248,32 @@ def run_evaluation(config_path: str | Path, *, overwrite: bool = False) -> Path:
                     del batch
 
                 h5[f"subjects/{subject}"].attrs["complete"] = True
+
+            aggregates = h5.create_group("aggregates")
+            aggregates.attrs["aggregation_unit"] = "subject_mean"
+            aggregates.attrs["std_ddof"] = 1
+            aggregates.attrs["n_subjects"] = len(config.subjects)
+            for spec in config.models:
+                model_group = aggregates.create_group(spec.name)
+                for metric in ALL_METRICS:
+                    subject_means = np.asarray(
+                        [
+                            np.mean(
+                                h5[f"subjects/{subject}/models/{spec.name}/{metric}"][:],
+                                dtype=np.float64,
+                            )
+                            for subject in config.subjects
+                        ],
+                        dtype=np.float64,
+                    )
+                    metric_group = model_group.create_group(metric)
+                    metric_group.create_dataset("subject_means", data=subject_means)
+                    metric_group.create_dataset(
+                        "mean_over_subjects", data=subject_means.mean()
+                    )
+                    metric_group.create_dataset(
+                        "std_over_subjects", data=subject_means.std(ddof=1)
+                    )
 
         os.replace(temporary_path, config.output_path)
     except BaseException:

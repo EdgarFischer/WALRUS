@@ -4,6 +4,8 @@ from pathlib import Path
 
 import h5py
 
+from walinet.paper_figures.paper_fig1.metrics import ALL_METRICS
+
 
 def results_dataframe(path: str | Path):
     """Return spectrum-averaged values for every subject, seed, and target."""
@@ -15,7 +17,7 @@ def results_dataframe(path: str | Path):
             for target_group in subject_group["targets"].values():
                 target = float(target_group.attrs["target"])
                 for model, model_group in target_group["models"].items():
-                    for metric in ("nuisance_relative_l2", "metabolite_relative_l2"):
+                    for metric in ALL_METRICS:
                         values = model_group[metric][:]
                         rows.append({"subject": subject, "model": model, "target": target,
                                      "metric": metric, "mean": float(values.mean())})
@@ -31,7 +33,7 @@ def aggregates_dataframe(path: str | Path):
     rows = []
     with h5py.File(Path(path).expanduser(), "r") as h5:
         for target_group in h5["aggregates"].values():
-            for metric in ("nuisance_relative_l2", "metabolite_relative_l2"):
+            for metric in ALL_METRICS:
                 group = target_group[metric]
                 rows.append({
                     "target": float(target_group.attrs["target"]),
@@ -55,7 +57,7 @@ def subject_means_dataframe(path: str | Path):
         subjects = [value.decode() if isinstance(value, bytes) else str(value)
                     for value in h5["subject_labels"][:]]
         for target_group in h5["aggregates"].values():
-            for metric in ("nuisance_relative_l2", "metabolite_relative_l2"):
+            for metric in ALL_METRICS:
                 values = target_group[metric]["subject_means_over_seeds"][:]
                 rows.extend({
                     "subject": subject,

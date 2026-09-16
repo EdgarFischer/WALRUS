@@ -16,7 +16,7 @@ from walinet.config.build_simulation import build_simulation_config
 from walinet.inference.inference import _load_checkpoint_state_dict, _load_model_and_params
 from walinet.paper_figures.mask_degradation.config import load_config
 from walinet.paper_figures.mask_degradation.masks import dilate_lipid_inward
-from walinet.paper_figures.paper_fig1.metrics import calculate_errors
+from walinet.paper_figures.paper_fig1.metrics import ALL_METRICS, calculate_errors
 from walinet.training.training import forward_model
 from walinet.training_data.lcmodel_basis.acquisition import prepare_basis_for_acquisition
 from walinet.training_data.lipid_removal import (
@@ -199,7 +199,7 @@ def run_evaluation(config_path: str | Path, *, overwrite: bool = False) -> Path:
 
     try:
         with h5py.File(temporary_path, "w") as h5:
-            h5.attrs["format"] = "walinet.mask_degradation.v2"
+            h5.attrs["format"] = "walinet.mask_degradation.v3"
             h5.attrs["seed"] = config.seed
             h5.attrs["n_spectra_per_subject"] = config.n_spectra_per_subject
             h5.attrs["operator_target"] = config.operator_target
@@ -217,7 +217,7 @@ def run_evaluation(config_path: str | Path, *, overwrite: bool = False) -> Path:
                               dtype=string_dtype)
             h5.create_dataset("subject_labels", data=list(config.subjects), dtype=string_dtype)
             subjects_group = h5.create_group("subjects")
-            metrics = ("nuisance_relative_l2", "metabolite_relative_l2")
+            metrics = ALL_METRICS
             combination_means = {
                 metric: {
                     n_voxels: np.empty(
@@ -331,15 +331,17 @@ def run_evaluation(config_path: str | Path, *, overwrite: bool = False) -> Path:
                                     network_l2=network_l2,
                                     architecture="ynet",
                                 )[:, :2, :]
-                                nuisance_error, metabolite_error = calculate_errors(
-                                    network_input=batch.network_input,
+                                errors = calculate_errors(
                                     true_nuisance=batch.network_target,
                                     predicted_nuisance=prediction,
+                                    clean_metabolite=(
+                                        batch.normalized_clean_metabolite_spectra
+                                    ),
                                 )
                             result_group = group["models"][model_label]
                             values = {
-                                "nuisance_relative_l2": nuisance_error.cpu().numpy(),
-                                "metabolite_relative_l2": metabolite_error.cpu().numpy(),
+                                metric: value.cpu().numpy()
+                                for metric, value in zip(metrics, errors)
                             }
                             for metric, metric_values in values.items():
                                 metric_values = metric_values.astype(np.float32)

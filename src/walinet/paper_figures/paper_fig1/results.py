@@ -7,6 +7,8 @@ from pathlib import Path
 import h5py
 import numpy as np
 
+from walinet.paper_figures.paper_fig1.metrics import ALL_METRICS
+
 
 def load_results(path: str | Path) -> dict[str, dict[str, dict[str, np.ndarray]]]:
     result = {}
@@ -15,8 +17,7 @@ def load_results(path: str | Path) -> dict[str, dict[str, dict[str, np.ndarray]]
             result[subject] = {}
             for model, model_group in subject_group["models"].items():
                 result[subject][model] = {
-                    "nuisance_relative_l2": model_group["nuisance_relative_l2"][:],
-                    "metabolite_relative_l2": model_group["metabolite_relative_l2"][:],
+                    metric: model_group[metric][:] for metric in ALL_METRICS
                 }
     return result
 
@@ -30,7 +31,7 @@ def results_dataframe(path: str | Path):
         for subject, subject_group in h5["subjects"].items():
             for model, model_group in subject_group["models"].items():
                 family = str(model_group.attrs["family"])
-                for metric in ("nuisance_relative_l2", "metabolite_relative_l2"):
+                for metric in ALL_METRICS:
                     values = model_group[metric][:]
                     rows.append({
                         "subject": subject,

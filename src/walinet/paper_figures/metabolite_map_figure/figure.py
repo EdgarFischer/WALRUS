@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Mapping, Sequence
 
 import matplotlib.pyplot as plt
+from matplotlib.text import Text
+from matplotlib.ticker import MaxNLocator
 import nibabel as nib
 from nibabel.processing import resample_from_to
 import numpy as np
@@ -97,6 +99,7 @@ def create_figure(
     cmap: str = "viridis",
     map_alpha: float = 0.72,
     localizer_orientation: str = "coronal",
+    font_scale: float = 1.0,
     figsize: tuple[float, float] = (13, 9.4),
 ):
     """Return the figure and a dictionary of geometry/QC information."""
@@ -160,6 +163,8 @@ def create_figure(
         raise ValueError("At least one pipeline is required")
     if not 0 < map_alpha <= 1:
         raise ValueError("map_alpha must be in (0, 1]")
+    if font_scale <= 0:
+        raise ValueError("font_scale must be greater than zero")
     localizer_orientation = localizer_orientation.lower()
     if localizer_orientation not in {"coronal", "sagittal"}:
         raise ValueError(
@@ -268,7 +273,15 @@ def create_figure(
                                             -0.5, anatomy.shape[1] - 0.5))
                 axis.axis("off")
         colorbar_axis = figure.add_subplot(grid[row, -1])
-        figure.colorbar(image, cax=colorbar_axis, label="Amplitude")
+        colorbar = figure.colorbar(
+            image, cax=colorbar_axis, label="Amplitude [a.u.]"
+        )
+        colorbar.locator = MaxNLocator(nbins=2)
+        colorbar.update_ticks()
+
+    if font_scale != 1.0:
+        for text_artist in figure.findobj(match=Text):
+            text_artist.set_fontsize(text_artist.get_fontsize() * font_scale)
 
     qc = {
         "mask_path": mask_path,

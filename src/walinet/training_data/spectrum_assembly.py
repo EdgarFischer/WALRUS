@@ -86,6 +86,7 @@ class AssembledSpectra:
 
     mixture_spectra: torch.Tensor
     baseline_spectra: torch.Tensor
+    acquired_clean_metabolite_spectra: torch.Tensor
 
     acquired_n_timepoints: torch.Tensor
 
@@ -909,6 +910,9 @@ def assemble_spectra(
         ),
         baseline_spectra=(
             baseline_spectra
+        ),
+        acquired_clean_metabolite_spectra=(
+            acquired_metabolite_spectra
         ),
         acquired_n_timepoints=(
             acquired_n_timepoints

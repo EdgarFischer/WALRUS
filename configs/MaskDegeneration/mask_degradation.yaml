@@ -30,4 +30,4 @@ data:
   lipid_mask: "masks/lipid_mask.npy"
 
 output:
-  path: "../../results/MaskDegeneration/mask_degradation_3seeds_5subjects.h5"
+  path: "../../results/MaskDegeneration/mask_degradation_3seeds_5subjects_clean_metabolite.h5"

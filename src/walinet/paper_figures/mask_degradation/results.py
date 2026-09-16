@@ -5,6 +5,8 @@ from pathlib import Path
 import h5py
 import numpy as np
 
+from walinet.paper_figures.paper_fig1.metrics import ALL_METRICS
+
 
 def results_dataframe(path: str | Path):
     """Return per-subject, model, and dilation summary statistics."""
@@ -20,7 +22,7 @@ def results_dataframe(path: str | Path):
                     else [("model", group)]
                 )
                 for model, model_group in model_groups:
-                    for metric in ("nuisance_relative_l2", "metabolite_relative_l2"):
+                    for metric in ALL_METRICS:
                         values = model_group[metric][:]
                         rows.append({
                             "subject": subject,
@@ -50,7 +52,7 @@ def aggregates_dataframe(path: str | Path):
         if "aggregates" not in h5:
             raise ValueError("Result file has no v2 aggregate results.")
         for _, dilation_group in h5["aggregates"].items():
-            for metric in ("nuisance_relative_l2", "metabolite_relative_l2"):
+            for metric in ALL_METRICS:
                 metric_group = dilation_group[metric]
                 rows.append({
                     "dilation": int(dilation_group.attrs["n_voxels"]),
@@ -74,7 +76,7 @@ def subject_means_dataframe(path: str | Path):
         subjects = [value.decode() if isinstance(value, bytes) else str(value)
                     for value in h5["subject_labels"][:]]
         for dilation_group in h5["aggregates"].values():
-            for metric in ("nuisance_relative_l2", "metabolite_relative_l2"):
+            for metric in ALL_METRICS:
                 values = dilation_group[metric]["subject_means_over_seeds"][:]
                 rows.extend({
                     "subject": subject,

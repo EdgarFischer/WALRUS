@@ -6,21 +6,26 @@ import torch
 import yaml
 
 from walinet.paper_figures.paper_fig1.config import load_evaluation_config
-from walinet.paper_figures.paper_fig1.metrics import calculate_errors
+from walinet.paper_figures.paper_fig1.metrics import (
+    ALL_METRICS,
+    NUISANCE_RESIDUAL_METRIC,
+    calculate_errors,
+)
 from walinet.paper_figures.paper_fig1.results import load_results, results_dataframe
 
 
 def test_metrics_are_zero_for_perfect_nuisance_prediction():
     generator = torch.Generator().manual_seed(7)
-    network_input = torch.randn(4, 2, 8, generator=generator)
+    clean_metabolite = torch.randn(4, 2, 8, generator=generator)
     target = torch.randn(4, 2, 8, generator=generator)
-    nuisance, metabolite = calculate_errors(
-        network_input=network_input,
+    nuisance, metabolite, reference = calculate_errors(
         true_nuisance=target,
         predicted_nuisance=target.clone(),
+        clean_metabolite=clean_metabolite,
     )
     torch.testing.assert_close(nuisance, torch.zeros_like(nuisance))
     torch.testing.assert_close(metabolite, torch.zeros_like(metabolite))
+    assert torch.all(reference > 0)
 
 
 def test_config_ignores_disabled_models_and_resolves_paths(tmp_path):
@@ -49,18 +54,15 @@ def test_result_readers(tmp_path):
     with h5py.File(path, "w") as h5:
         group = h5.create_group("subjects/S1/models/M1")
         group.attrs["family"] = "unet"
-        group.create_dataset("nuisance_relative_l2", data=[1.0, 3.0])
-        group.create_dataset("metabolite_relative_l2", data=[2.0, 4.0])
+        for index, metric in enumerate(ALL_METRICS, start=1):
+            group.create_dataset(metric, data=[float(index), float(index + 2)])
 
     nested = load_results(path)
     np.testing.assert_array_equal(
-        nested["S1"]["M1"]["nuisance_relative_l2"], [1.0, 3.0]
+        nested["S1"]["M1"][NUISANCE_RESIDUAL_METRIC], [1.0, 3.0]
     )
     summary = results_dataframe(path)
-    assert set(summary["metric"]) == {
-        "nuisance_relative_l2",
-        "metabolite_relative_l2",
-    }
+    assert set(summary["metric"]) == set(ALL_METRICS)
     assert summary.loc[
-        summary["metric"] == "nuisance_relative_l2", "median"
+        summary["metric"] == NUISANCE_RESIDUAL_METRIC, "median"
     ].item() == 2.0

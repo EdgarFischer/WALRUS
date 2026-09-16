@@ -171,6 +171,11 @@ class SimulatedSpectrumBatch:
         return self.assembled.target_spectra
 
     @property
+    def clean_metabolite_spectra(self) -> torch.Tensor:
+        """Clean metabolite spectrum after acquisition-length simulation."""
+        return self.assembled.acquired_clean_metabolite_spectra
+
+    @property
     def acquired_n_timepoints(
         self,
     ) -> torch.Tensor:
@@ -290,6 +295,11 @@ class PreparedSpectrumBatch:
         self,
     ) -> torch.Tensor:
         return self.raw.target_spectra
+
+    @property
+    def normalized_clean_metabolite_spectra(self) -> torch.Tensor:
+        """Acquired clean metabolites using the shared input normalization."""
+        return self.raw.clean_metabolite_spectra / self.normalization_scale
 
     @property
     def raw_l2_spectra(
