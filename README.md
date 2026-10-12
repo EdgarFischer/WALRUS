@@ -1,188 +1,153 @@
-# WALINET
+# WALRUS
 
-WALINET (Water And Lipid Identification NETwork) is a convolutional neural network for removing nuisance water and lipid signals from proton magnetic resonance spectroscopic imaging (¹H-MRSI) data.
+WALRUS is a research codebase for learning-based removal of nuisance water and lipid signals from proton magnetic resonance spectroscopic imaging (¹H-MRSI) data. It builds on the original WALINET idea, but the current repository is organized around configuration-driven simulation, empirical simulator calibration, model training, and inference on complex-valued MRSI FIDs.
+
+The project supports configurable U-Net and Y-Net model families:
+
+- U-Net models with configurable depth and channel count;
+- Y-Net models with an additional L2/lipid-projection input branch.
 
 The original WALINET method was published in [Weiser et al., 2024](https://doi.org/10.1002/mrm.30402), and the original source code is available at [weiserjpaul/WALINET](https://github.com/weiserjpaul/WALINET).
 
-This repository is based on the original WALINET implementation by Paul Weiser and collaborators. The codebase has been substantially refactored to improve reproducibility, configuration management, training-data generation, and usability across different datasets and acquisition settings.
+> Note  
+> The MRSI datasets, fitted LCModel results, trained checkpoints, generated spectra, and paper graphics are not distributed with this repository. They are expected to exist locally and are intentionally ignored by Git.
 
-In addition to the original WALINET Y-Net architecture, this repository also supports an experimental single-input U-Net variant with alternative normalization schemes. When used with maximum-absolute-value normalization, this variant avoids the need for lipid masks and subject-specific lipid projection operators at inference time. This functionality is experimental and has not yet been sufficiently validated for accuracy.
+## Concept
 
-> **Note**  
-> Due to data-sharing restrictions, the MRSI datasets used for training and evaluation cannot be distributed as part of this repository. Users must provide their own MRSI datasets in the expected format to generate training data, train models, and perform inference.
+![WALRUS workflow overview](Preview.png)
 
-This repository provides workflows for:
+## Documentation
 
-- generating WALINET training data from MRSI datasets,
-- training WALINET models,
-- applying trained models to unseen data,
-- reproducing experiments through configuration-driven pipelines.
+More detailed documentation is split into:
 
-The code is intended primarily as a research software framework for developing, training, and evaluating WALINET-based nuisance signal removal methods in ¹H-MRSI.
+- [Simulation](docs/simulation.md)
+- [Calibration](docs/calibration.md)
+- [Training](docs/training.md)
+- [Inference](docs/inference.md)
+- [Data formats](docs/data_formats.md)
 
+## Repository layout
 
-## Table of Contents
+```text
+WALRUS/
+├── configs/                 YAML configuration files
+│   ├── Simulation/          simulator and distribution configs
+│   ├── Training/            model-training configs
+│   └── PaperFig1/           evaluation configs for paper figures
+├── docker/                  container build/launch files and dependencies
+├── docs/                    user-facing documentation
+├── scripts/                 command-line workflows
+│   ├── SimulationScripts/   training-data, basis, water/lipid utilities
+│   ├── trainingScripts/     model training entry points
+│   ├── inference/           inference scripts for prepared datasets
+│   ├── DataPrepScripts/     site-specific data conversion helpers
+│   └── evaluation/          paper/evaluation utilities
+├── src/walinet/             Python package
+│   ├── config/              config schemas and builders
+│   ├── data/                data loading and CombinedCSI I/O
+│   ├── inference/           FID inference and pipeline code
+│   ├── model/               neural-network models
+│   ├── training/            training loops and fixed-pool support
+│   ├── training_data/       simulator, basis handling, resources
+│   └── paper_figures/       reproducible figure helpers
+└── tests/                   unit tests and optional integration tests
+```
 
-- [Installation](#installation)
-- [Repository Structure](#repository-structure)
-- [Usage](#usage)
-  - [1. Prepare data](#1-prepare-data)
-  - [2. Generate Training Data](#2-generate-training-data)
-  - [3. Train a Model](#3-train-a-model)
-  - [4. Run Inference](#4-run-inference)
-- [Additional Notebooks](#additional-notebooks)
+Local datasets, generated outputs, fitted maps, graphics, metabolite-mode resources, and checkpoints are intentionally kept outside version control.
 
 ## Installation
 
-The recommended way to use this repository is through the provided Docker container.
-
-### Using Docker
-
-**Prerequisite:** Docker must be installed on your system.
-
-Build the container:
+The historical recommended environment is the Docker setup:
 
 ```bash
 bash docker/build_docker.sh
-```
-Launch the container:
-
-```
 bash docker/launch_docker.sh
 ```
-This starts a container with the required Python environment and dependencies.
 
-## Repository Structure
+For an existing Python environment, install the packages listed in:
 
 ```text
-configs/          YAML configuration files for training-data generation and model training
-data/             User-provided MRSI datasets and generated training data
-docker/           Docker build and launch scripts
-legacy_code/      Older scripts kept for reference
-logs/             Runtime logs from long-running scripts
-MetabModes/       Metabolite basis/mode files used for spectral simulations
-models/           Trained models, checkpoints, configs, and training logs
-notebooks/        Analysis and inference notebooks
-scripts/          Command-line entry points
-src/              Source code for the WALINET package
-tests/            Automated tests
-
-B0_correction/    Auxiliary B0-correction code; not required for the core WALINET workflow
+docker/requirements.txt
 ```
 
-## Usage
+During development, run commands from the repository root and ensure that `src/` is on the Python path. `pytest.ini` does this automatically for tests.
 
-The main workflows are controlled through YAML configuration files in `configs/`.
+## Quick start
 
 ### 1. Prepare data
 
-Input data must follow this structure:
+Place each subject in the expected local structure:
 
 ```text
-data/
-└── Subject01/
-    ├── OriginalData/
-    │   └── data.npy
-    └── masks/
-        ├── brain_mask.npy
-        └── lipid_mask.npy
+<base_dir>/<Subject>/
+├── OriginalData/
+│   └── data.npy
+└── masks/
+    ├── brain_mask.npy
+    └── lipid_mask.npy
 ```
+
+See [Data formats](docs/data_formats.md) for shapes, dtypes, and naming conventions.
+
+### 2. Configure simulation
+
+Start from one of the existing simulator configs:
 
 ```text
-data.npy        Complex-valued MRSI data      (x, y, z, t)
-brain_mask.npy  Binary brain mask             (x, y, z)
-lipid_mask.npy  Binary lipid/scalp mask       (x, y, z)
+configs/Simulation/3T_on_the_fly.yaml
+configs/Simulation/7T_on_the_fly.yaml
+configs/Simulation/7T_on_the_fly_WALINET_STYLE.yaml
 ```
 
-### 2. Generate Training Data
+These define acquisition parameters, simulator distributions, masks/resources, and whether acquisition length is fixed or variable.
 
-Edit one of the training-data configuration files, for example:
+### 3. Train
+
+Start from:
 
 ```text
-configs/generate_training_data_3T.yaml
-configs/generate_training_data_7T.yaml
+configs/Training/train_3T.yaml
+configs/Training/train_7T.yaml
 ```
 
-Then run:
+Run:
 
 ```bash
-python3 scripts/generate_training_data.py \
-  --config configs/generate_training_data_3T.yaml
+python scripts/trainingScripts/train.py --config configs/Training/train_7T.yaml
 ```
 
-Training data will be generated in:
+See [Training](docs/training.md) for warm starts, fixed training pools, and validation behavior.
+
+### 4. Run inference
+
+For NumPy CSI data, the core inference API is in `walinet.inference.fid_inference`. Project-specific scripts live in:
 
 ```text
-data/<subject>/TrainData/
+scripts/inference/
 ```
 
-including files such as:
+Typical output is a corrected FID array such as:
 
 ```text
-IsolatedWater_<version>.npy
-TrainData_<version>.h5
-```
-### 3. Train a Model
-
-Edit:
-
-```text
-configs/train.yaml
+OriginalData/data_after_walrus.npy
 ```
 
-Then run:
+See [Inference](docs/inference.md).
+
+### 5. Test
+
+Fast unit tests:
 
 ```bash
-python3 scripts/train.py \
-  --config configs/train.yaml
+python -m pytest -q
 ```
 
-Trained models are stored in:
+GPU/data-heavy integration tests are marked separately and are not part of the default test run:
 
-```text
-models/<model_name>/
+```bash
+python -m pytest -q -m integration
 ```
 
-including files such as:
+## Notes on scope
 
-```text
-model_last.pt
-model_best.pt
-loss.txt
-configs/train.yaml
-```
-
-### 4. Run Inference
-
-Inference can be performed using the notebook:
-
-```text
-notebooks/EvaluateModelB4Fitting.ipynb
-```
-
-The notebook loads a trained WALINET model, applies it to an MRSI dataset, and provides visualizations of spectra before and after nuisance signal removal.
-
-A typical inference workflow consists of:
-
-```text
-1. Load MRSI data.
-2. Load brain and lipid masks.
-3. Compute the lipid projection operator.
-4. Load a trained WALINET model.
-5. Apply the model to remove water and lipid nuisance signals.
-6. Visualize spectra before and after correction.
-```
-
-Inference requires:
-
-```text
-- a trained WALINET model
-- complex-valued MRSI data
-- brain mask
-- lipid/scalp mask
-```
-## Additional Notebooks
-
-The repository may contain additional notebooks for downstream analysis, such as metabolite quantification or metabolite map visualization.
-
-These notebooks are not part of the core WALINET pipeline and may require additional external software or site-specific processing tools. They are kept mainly for reference and exploratory analysis.
+This repository is research software. Some scripts are intentionally site-specific and encode local dataset conventions. The reusable core is the package under `src/walinet/` plus the YAML-driven simulation, training, and inference workflows.

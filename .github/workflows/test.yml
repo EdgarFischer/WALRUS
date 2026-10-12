@@ -18,7 +18,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest numpy scipy h5py torch pyyaml
+          pip install pytest numpy scipy h5py pandas torch pyyaml
 
       - name: Run tests
         run: pytest -q

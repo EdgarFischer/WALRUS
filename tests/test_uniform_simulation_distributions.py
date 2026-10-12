@@ -34,13 +34,16 @@ def test_uniform_distribution_sampling_is_seeded_and_bounded() -> None:
     assert abs(float(first.mean())) < 0.02
 
 
-def test_walinet_style_uniform_ranges_and_unit_conversion() -> None:
+def test_walinet_style_uniform_ranges_and_unit_conversion(tmp_path) -> None:
     project_root = Path(__file__).resolve().parents[1]
     config_path = (
         project_root
         / "configs/Simulation/7T_on_the_fly_WALINET_STYLE.yaml"
     )
     raw = yaml.safe_load(config_path.read_text(encoding="utf-8"))
+    dummy_basis = tmp_path / "dummy_basis.h5"
+    dummy_basis.touch()
+    raw["basis"]["library"] = str(dummy_basis)
     config = build_simulation_config(raw, config_dir=config_path.parent)
     hz_per_ppm = config.acquisition.nmr_frequency_hz / 1e6
 
