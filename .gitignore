@@ -38,6 +38,7 @@ DataUsedForTraining.txt
 loss.txt
 models/
 *.png
+!Preview.png
 *.pdf
 B0_correction/
 
