@@ -8,10 +8,10 @@ from nibabel.processing import resample_from_to
 import matplotlib.pyplot as plt
 
 
-BASE_DIR = Path("/ceph/mri.meduniwien.ac.at/departments/radiology/mrsbrain/public/hfish/walinet/data/7T/NoB0Correction")
+BASE_DIR = Path("/ceph/mri.meduniwien.ac.at/departments/radiology/mrsbrain/public/hfish/WALRUS/data/7T/NoB0Correction/Tumor")
 
 SUBJECTS = [
-    "MS_180",
+    "Tumor_Patient_160_B_2026-03-17",
     #"MS_230",
     #"MS_250",
     # "MS_260",

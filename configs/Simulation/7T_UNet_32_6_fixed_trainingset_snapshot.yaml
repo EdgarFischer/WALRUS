@@ -1,0 +1,224 @@
+version: "simulation_v5"
+
+
+acquisition:
+  bandwidth_hz: 2778.0
+
+  # Internal maximum simulation length.
+  n_timepoints: 840
+
+  # Range of simulated native acquisition lengths.
+  min_acquired_n_timepoints: 420
+  max_acquired_n_timepoints: 840
+
+  # true:
+  #   Sample one acquisition length per spectrum and zero-fill
+  #   every spectrum to n_timepoints.
+  #
+  # false:
+  #   Sample one acquisition length for the complete batch and
+  #   return the batch at this native length without zero-filling.
+  zero_filling: false
+
+  # Larmor frequency of the acquisition.
+  #
+  # Used by the configuration builder to convert ppm-based
+  # frequency parameters into the simulator's internal unit Hz.
+  #
+  # hz_per_ppm = nmr_frequency_hz / 1e6
+  nmr_frequency_hz: 297222931
+
+
+basis:
+  library: "../../MetabModes/LCModelBasis/processed/7T_basis_tumor_v1.h5"
+
+
+metabolites:
+  profiles:
+    - config: "Metabos_healthy_7T_2sigma.yaml"
+      probability: 0.7
+    
+    - config: "Metabos_tumor_7T_2sigma.yaml"
+      probability: 0.3
+
+  # Global frequency shift in ppm.
+  #
+  # Model:
+  #
+  #   0.50 * Normal(center, normal_std)
+  # + 0.25 * (center + LogNormal(tail_log_mu, tail_log_sigma))
+  # + 0.25 * (center - LogNormal(tail_log_mu, tail_log_sigma))
+  #
+  # The lognormal tail is calibrated from:
+  #
+  #   abs(frequency_shift - center)
+  #
+  # Internally converted from ppm to Hz.
+  frequency_shift:
+    distribution:
+      type: "symmetric_mixture"
+
+      center_ppm: 0.0
+
+      normal:
+        std_ppm: 0.116
+
+      lognormal_tail:
+        log_mu: -3.1
+        log_sigma: 2.45
+
+  # Spectral FWHM in ppm.
+  #
+  # Model:
+  #
+  #   0.50 * zero-truncated Normal
+  # + 0.50 * LogNormal
+  #
+  # The normal component is rejected and resampled when FWHM <= 0.
+  # The sampled FWHM is subsequently converted from ppm to Hz.
+  fwhm:
+    distribution:
+      type: "positive_mixture"
+
+      normal:
+        mean_ppm: 0.056
+        std_ppm: 0.045 #2 sigma originally: 0.0904
+
+      lognormal:
+        log_mu: -2.88
+        log_sigma: 0.7 # 2 sigma oringally: 1.4
+
+      minimum_ppm: 0.0
+
+  # Frequency-independent global phase rotation.
+  #
+  # Model:
+  #
+  #   0.50 * Normal(center, normal_std)
+  # + 0.25 * (center + LogNormal(tail_log_mu, tail_log_sigma))
+  # + 0.25 * (center - LogNormal(tail_log_mu, tail_log_sigma))
+  #
+  # The lognormal tail is calibrated from:
+  #
+  #   abs(zero_order_phase - center)
+  #
+  # Internally converted from degrees to radians.
+  zero_order_phase:
+    distribution:
+      type: "symmetric_mixture"
+
+      center_deg: -12.0
+
+      normal:
+        std_deg: 50.4
+
+      lognormal_tail:
+        log_mu: 2.89
+        log_sigma: 2.1
+
+  # Linear phase slope over frequency.
+  #
+  # Model:
+  #
+  #   0.50 * Normal(center, normal_std)
+  # + 0.25 * (center + LogNormal(tail_log_mu, tail_log_sigma))
+  # + 0.25 * (center - LogNormal(tail_log_mu, tail_log_sigma))
+  #
+  # The lognormal tail is calibrated from:
+  #
+  #   abs(first_order_phase - center)
+  #
+  # Internally converted from deg/ppm to rad/Hz.
+  first_order_phase:
+    distribution:
+      type: "symmetric_mixture"
+
+      center_deg_per_ppm: 1.0
+
+      normal:
+        std_deg_per_ppm: 26.7
+
+      lognormal_tail:
+        log_mu: 2.2
+        log_sigma: 2.34
+
+
+noise:
+  # LCModel-compatible target S/N:
+  #
+  #   S/N = maximum metabolite peak
+  #         / (2 * RMS(receiver noise))
+  #
+  # Model:
+  #
+  #   0.50 * truncated Normal
+  # + 0.50 * LogNormal
+  #
+  # Values below min are rejected and resampled.
+  snr:
+    distribution:
+      type: "positive_mixture"
+
+      normal:
+        mean: 9
+        std: 5.19
+
+      lognormal:
+        log_mu: 2.2
+        log_sigma: 0.5732
+
+      min: 1.0
+
+
+water:
+  # Water amplitude relative to the maximum metabolite amplitude.
+  #
+  # Model:
+  #
+  #   0.50 * zero-truncated Normal
+  # + 0.50 * LogNormal
+  scaling:
+    distribution:
+      type: "positive_mixture"
+
+      normal:
+        mean: 32.4
+        std: 36.8
+
+      lognormal:
+        log_mu: 3.48
+        log_sigma: 1.1
+
+      minimum: 0.0
+
+
+lipids:
+  n_random_fids: 10
+
+  # Lipid amplitude relative to the maximum metabolite amplitude.
+  #
+  # Model:
+  #
+  #   0.50 * zero-truncated Normal
+  # + 0.50 * LogNormal
+  scaling:
+    distribution:
+      type: "positive_mixture"
+
+      normal:
+        mean: 2.36
+        std: 6.65
+
+      lognormal:
+        log_mu: 0.857
+        log_sigma: 2.21
+
+      minimum: 0.0
+
+
+subject_sampling:
+  mixing: "same_subject"
+
+
+lipid_projection:
+  enabled: false

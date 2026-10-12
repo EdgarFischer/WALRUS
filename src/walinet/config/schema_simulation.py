@@ -9,10 +9,13 @@ from typing import Literal, TypeAlias
 
 PositiveDistributionType = Literal[
     "positive_mixture",
+    "log_uniform",
+    "uniform",
 ]
 
 SignedDistributionType = Literal[
     "symmetric_mixture",
+    "uniform",
 ]
 
 
@@ -132,6 +135,57 @@ class PositiveMixtureDistributionCfg:
 
 
 @dataclass(frozen=True)
+class LogUniformDistributionCfg:
+    """Positive distribution uniform in natural-log space."""
+
+    minimum: float
+    maximum: float
+    type: PositiveDistributionType = "log_uniform"
+
+    def __post_init__(self) -> None:
+        if self.type != "log_uniform":
+            raise ValueError(
+                "LogUniformDistributionCfg.type must be 'log_uniform'."
+            )
+        if not math.isfinite(self.minimum) or self.minimum <= 0:
+            raise ValueError(
+                "LogUniformDistributionCfg.minimum must be finite and > 0."
+            )
+        if not math.isfinite(self.maximum) or self.maximum < self.minimum:
+            raise ValueError(
+                "LogUniformDistributionCfg.maximum must be finite and >= "
+                "minimum."
+            )
+
+
+@dataclass(frozen=True)
+class UniformDistributionCfg:
+    """Continuous uniform distribution in the simulator's internal unit."""
+
+    minimum: float
+    maximum: float
+    type: Literal["uniform"] = "uniform"
+
+    def __post_init__(self) -> None:
+        if self.type != "uniform":
+            raise ValueError(
+                "UniformDistributionCfg.type must be 'uniform'."
+            )
+        if not math.isfinite(self.minimum):
+            raise ValueError(
+                "UniformDistributionCfg.minimum must be finite."
+            )
+        if not math.isfinite(self.maximum):
+            raise ValueError(
+                "UniformDistributionCfg.maximum must be finite."
+            )
+        if self.maximum < self.minimum:
+            raise ValueError(
+                "UniformDistributionCfg.maximum must be >= minimum."
+            )
+
+
+@dataclass(frozen=True)
 class SymmetricMixtureDistributionCfg:
     """
     Signed mixture with a normal core and symmetric lognormal tails.
@@ -171,8 +225,14 @@ class SymmetricMixtureDistributionCfg:
         return self.normal.std
 
 
-PositiveDistributionCfg: TypeAlias = PositiveMixtureDistributionCfg
-SignedDistributionCfg: TypeAlias = SymmetricMixtureDistributionCfg
+PositiveDistributionCfg: TypeAlias = (
+    PositiveMixtureDistributionCfg
+    | LogUniformDistributionCfg
+    | UniformDistributionCfg
+)
+SignedDistributionCfg: TypeAlias = (
+    SymmetricMixtureDistributionCfg | UniformDistributionCfg
+)
 
 
 # -----------------------------------------------------------------------------
@@ -302,7 +362,7 @@ class FrequencyShiftCfg:
     Global frequency-shift distribution in the internal unit Hz.
     """
 
-    distribution: SymmetricMixtureDistributionCfg
+    distribution: SignedDistributionCfg
 
     @property
     def center_hz(self) -> float:
@@ -327,7 +387,7 @@ class FWHMCfg:
     Positive mixture distribution of the total Voigt FWHM in Hz.
     """
 
-    distribution: PositiveMixtureDistributionCfg
+    distribution: PositiveDistributionCfg
 
     @property
     def normal_mean_hz(self) -> float:
@@ -356,7 +416,7 @@ class ZeroOrderPhaseCfg:
     Frequency-independent phase distribution in radians.
     """
 
-    distribution: SymmetricMixtureDistributionCfg
+    distribution: SignedDistributionCfg
 
     @property
     def center_rad(self) -> float:
@@ -455,9 +515,9 @@ class NoiseCfg:
 
 @dataclass(frozen=True)
 class PositiveScalingDistributionCfg:
-    """Positive mixture distribution of a dimensionless scaling factor."""
+    """Positive distribution of a dimensionless scaling factor."""
 
-    distribution: PositiveMixtureDistributionCfg
+    distribution: PositiveDistributionCfg
 
     @property
     def minimum(self) -> float:

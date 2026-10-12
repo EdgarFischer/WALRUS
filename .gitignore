@@ -44,9 +44,14 @@ B0_correction/
 # Ignore Jupyter notebook checkpoints
 .ipynb_checkpoints/
 
+# Ignore generated/large project outputs
+notebooks/*/
+MetabModes/
+results/
+SavedGraphics/
+
 # Ignore logs and temporary files
 logs/
 *.log
 *.tmp
 *.DS_Store
-

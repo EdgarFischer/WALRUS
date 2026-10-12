@@ -1,0 +1,59 @@
+run:
+  name: "UNet_32_6_fixed_trainingset_100ep"
+  seed: 42
+  gpu: 2
+
+data:
+  base_dir: "../../data/7T/B0corrected_wo_LipidMask"
+
+  train_subjects: ['Brisbane/Vol3', 'Brisbane/Vol4', 'Brisbane/Vol5', 'Brisbane/Vol6', 'London/Vol2', 'London/Vol3', 'London/Vol4', 'London/Vol5', 'Vienna/Vol6', 'Vienna/Vol7', 'Vienna/Vol8', 'Vienna/Vol9']
+  val_subjects: ['Vienna/Vol5', 'Brisbane/Vol1', 'London/Vol1']
+
+  # Immutable copy of the simulation config archived with the original run.
+  simulation_config: "../Simulation/7T_UNet_32_6_fixed_trainingset_snapshot.yaml"
+
+  resources:
+    version: "water_lipid_v1"
+    filename: "TrainData/SimulationResources_{version}.h5"
+
+output:
+  base_dir: "../../models"
+  overwrite: false
+
+training:
+  # Regenerate and reuse the exact same deterministic fixed training pool.
+  mode: "fixed"
+  batch_size: 950
+  epochs: 100
+  n_batches: 600
+  verbose: false
+
+  fixed:
+    n_spectra_per_subject: 100000
+    seed: 24680
+
+validation:
+  seed: 12345
+  n_spectra: 35000
+  batch_size: 3300
+
+# Fine-tuning settings analogous to the 100-epoch 7T_Final warm start.
+optim:
+  lr: 0.000005
+
+scheduler:
+  milestones: [600]
+  gamma: 0.5
+
+model:
+  architecture: "unet"
+  n_layers: 6
+  n_filters: 32
+  in_channels: 2
+  out_channels: 2
+  dropout: 0.0
+
+checkpoint:
+  # The training code intentionally loads model_last.pt, matching 7T_Final.
+  preload: true
+  preload_model: "UNet_32_6_fixed_trainingset"

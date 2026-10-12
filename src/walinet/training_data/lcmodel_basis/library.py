@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 import hashlib
 import json
 import platform
@@ -13,8 +13,10 @@ import sys
 import h5py
 import numpy as np
 
-from .hlsvd import ProcessedLCModelBasis
 from .parser import LCModelBasis
+
+if TYPE_CHECKING:
+    from .hlsvd import ProcessedLCModelBasis
 
 
 BASIS_LIBRARY_FORMAT = "walinet_lcmodel_basis_library"

@@ -1,0 +1,34 @@
+training_config: "train_7T_standard_simulation_evaluation.yaml"
+device: "cuda:3"
+
+simulation:
+  # Legacy labels are retained so these rows align with the existing HDF5.
+  # The loader resolves them to the current UCSF/VolN directory structure.
+  subjects:
+    - "Vol1_UCSF"
+    - "Vol2_UCSF"
+    - "Vol3_UCSF"
+    - "Vol4_UCSF"
+    - "Vol5_UCSF"
+  n_spectra_per_subject: 100000
+  batch_size: 1000
+  seed: 20260908
+
+models:
+  - name: "UNet_WALINET_calibrated_seed1"
+    family: "unet_parameter_matched"
+    path: "../../models/UNet_ablation_WALINET_Calibration_S1"
+    checkpoint: "model_last.pt"
+
+  - name: "UNet_WALINET_calibrated_seed2"
+    family: "unet_parameter_matched"
+    path: "../../models/UNet_ablation_WALINET_Calibration_S2"
+    checkpoint: "model_last.pt"
+
+  - name: "UNet_WALINET_calibrated_seed3"
+    family: "unet_parameter_matched"
+    path: "../../models/UNet_ablation_WALINET_Calibration_S3"
+    checkpoint: "model_last.pt"
+
+output:
+  path: "../../results/PaperFig1/model_comparison_7T_U20star_standard_simulator.h5"

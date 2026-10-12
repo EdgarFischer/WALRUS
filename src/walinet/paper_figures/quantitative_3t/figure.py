@@ -5,14 +5,19 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+from matplotlib.lines import Line2D
 
 from walinet.paper_figures.hlsvd_l2_comparison.results import results_dataframe
-from walinet.paper_figures.lcmodel_quality import plot_fit_rates
+from walinet.paper_figures.lcmodel_quality import plot_fit_rates_by_method
 
 
 METHODS = ("HLSVD + L2", "WALRUS")
 # Match the first two metabolite colors used in panel c (tNAA and tCr).
 METHOD_COLORS = {"HLSVD + L2": "#0072b2", "WALRUS": "#e69f00"}
+METHOD_LABELS = {
+    "HLSVD + L2": "HLSVD + L2",
+    "WALRUS": "deep U-Net\n(calibrated training)",
+}
 SIMULATION_PANELS = (
     (
         "residual_l2_over_nuisance_l2",
@@ -47,7 +52,7 @@ def _plot_simulation_metric(axis, frame, metric, title, ylabel, *, logarithmic):
             linewidth=1.8,
             color=METHOD_COLORS[method],
         )
-    axis.set_xticks(x, METHODS)
+    axis.set_xticks(x, [""] * len(METHODS))
     axis.set_ylabel(ylabel, fontsize=12)
     axis.set_title(title, loc="left", fontweight="bold", fontsize=11)
     axis.tick_params(axis="both", labelsize=11)
@@ -93,13 +98,50 @@ def create_quantitative_figure(
         1, 3,
         figsize=figsize,
         gridspec_kw={"width_ratios": [1, 1, 1.65]},
-        constrained_layout=True,
+        constrained_layout=False,
+    )
+    figure.subplots_adjust(
+        left=0.055,
+        right=0.985,
+        bottom=0.13,
+        top=0.90,
+        wspace=0.34,
     )
     for axis, panel in zip(axes[:2], SIMULATION_PANELS):
         _plot_simulation_metric(
             axis, simulation_frame, *panel, logarithmic=simulation_log_scale
         )
-    plot_fit_rates(subject_fit_rates, axis=axes[2])
+    method_handles = [
+        Line2D(
+            [0],
+            [0],
+            marker="o",
+            linestyle="none",
+            markerfacecolor=METHOD_COLORS[method],
+            markeredgecolor=METHOD_COLORS[method],
+            markersize=8,
+            label=METHOD_LABELS[method].replace("\n", " "),
+        )
+        for method in METHODS
+    ]
+    axes[0].legend(
+        handles=method_handles,
+        loc="lower left",
+        bbox_to_anchor=(0.055, 0.015),
+        bbox_transform=figure.transFigure,
+        frameon=False,
+        fontsize=11.5,
+        ncols=2,
+        handlelength=1.2,
+        borderpad=0.2,
+        labelspacing=0.35,
+    )
+    plot_fit_rates_by_method(
+        subject_fit_rates,
+        axis=axes[2],
+        method_colors=METHOD_COLORS,
+        display_labels={method: "" for method in METHODS},
+    )
     axes[2].set_ylabel(axes[2].get_ylabel(), fontsize=12)
     axes[2].tick_params(axis="both", labelsize=11)
     threshold = float(subject_fit_rates.crlb_threshold.iloc[0])

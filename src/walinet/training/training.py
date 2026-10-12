@@ -204,6 +204,115 @@ def validate_prediction(
         )
 
 
+def _channels_to_complex_spectra(
+    tensor: torch.Tensor,
+) -> torch.Tensor:
+    """Convert a network tensor ``(B, 2, T)`` to complex spectra."""
+    validate_network_tensor(
+        tensor=tensor,
+        name="network tensor",
+    )
+    return torch.complex(
+        tensor[:, 0, :],
+        tensor[:, 1, :],
+    )
+
+
+def _complex_spectra_to_channels(
+    spectra: torch.Tensor,
+) -> torch.Tensor:
+    """Convert complex spectra ``(B, T)`` to a network tensor."""
+    return torch.stack(
+        (spectra.real, spectra.imag),
+        dim=1,
+    ).contiguous()
+
+
+def augment_fixed_training_batch(
+    *,
+    network_input: torch.Tensor,
+    network_target: torch.Tensor,
+    network_l2: torch.Tensor | None,
+    minimum_n_timepoints: int,
+    maximum_n_timepoints: int,
+    generator: torch.Generator,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor | None]:
+    """Apply one shared random native FID length to a fixed batch.
+
+    The fixed pool is stored at the maximum acquisition length.  A length is
+    sampled for every optimizer batch, all spectra are transformed to the FID
+    domain and cropped together, and the cropped FIDs are transformed back to
+    spectra.  Finally, input, target, and optional L2 input are normalized with
+    the cropped input maximum, matching the simulator's preparation step.
+    """
+    minimum_n_timepoints = int(minimum_n_timepoints)
+    maximum_n_timepoints = int(maximum_n_timepoints)
+    stored_n_timepoints = int(network_input.shape[-1])
+
+    if not (0 < minimum_n_timepoints <= maximum_n_timepoints):
+        raise ValueError("Invalid fixed-training acquisition-length range.")
+    if stored_n_timepoints != maximum_n_timepoints:
+        raise ValueError(
+            "The fixed training pool must be stored at the maximum "
+            "acquisition length:\n"
+            f"  stored:  {stored_n_timepoints}\n"
+            f"  maximum: {maximum_n_timepoints}"
+        )
+
+    if minimum_n_timepoints == maximum_n_timepoints:
+        return network_input, network_target, network_l2
+
+    crop_length = int(
+        torch.randint(
+            low=minimum_n_timepoints,
+            high=maximum_n_timepoints + 1,
+            size=(),
+            generator=generator,
+            device=network_input.device,
+            dtype=torch.int64,
+        ).item()
+    )
+
+    spectra = [
+        _channels_to_complex_spectra(network_input),
+        _channels_to_complex_spectra(network_target),
+    ]
+    if network_l2 is not None:
+        spectra.append(_channels_to_complex_spectra(network_l2))
+
+    stacked_spectra = torch.stack(spectra, dim=1)
+    fids = torch.fft.ifft(
+        torch.fft.ifftshift(stacked_spectra, dim=-1),
+        dim=-1,
+    )
+    cropped_spectra = torch.fft.fftshift(
+        torch.fft.fft(fids[..., :crop_length], dim=-1),
+        dim=-1,
+    )
+
+    normalization_scale = torch.amax(
+        torch.abs(cropped_spectra[:, 0, :]),
+        dim=-1,
+        keepdim=True,
+    )
+    if bool(torch.any(~torch.isfinite(normalization_scale))) or bool(
+        torch.any(normalization_scale <= 0)
+    ):
+        raise RuntimeError(
+            "Fixed-training crop produced an invalid normalization scale."
+        )
+    cropped_spectra = cropped_spectra / normalization_scale[:, None, :]
+
+    cropped_input = _complex_spectra_to_channels(cropped_spectra[:, 0, :])
+    cropped_target = _complex_spectra_to_channels(cropped_spectra[:, 1, :])
+    cropped_l2 = (
+        _complex_spectra_to_channels(cropped_spectra[:, 2, :])
+        if network_l2 is not None
+        else None
+    )
+    return cropped_input, cropped_target, cropped_l2
+
+
 def forward_model(
     *,
     model: torch.nn.Module,
@@ -448,6 +557,9 @@ def create_fixed_training_pool(
             simulated = simulator.simulate(
                 batch_size=current_batch_size,
                 generator=generator,
+                acquisition_length_override=int(
+                    simulator.config.acquisition.max_acquired_n_timepoints
+                ),
                 subject_indices=subject_indices,
             )
             inputs.append(simulated.network_input.detach().cpu())
@@ -628,6 +740,21 @@ def train_one_epoch(
                 else fixed_training_pool.network_l2.index_select(
                     0, fixed_indices
                 ).to(device=device)
+            )
+            acquisition = simulator.config.acquisition
+            network_input, network_target, network_l2 = (
+                augment_fixed_training_batch(
+                    network_input=network_input,
+                    network_target=network_target,
+                    network_l2=network_l2,
+                    minimum_n_timepoints=int(
+                        acquisition.min_acquired_n_timepoints
+                    ),
+                    maximum_n_timepoints=int(
+                        acquisition.max_acquired_n_timepoints
+                    ),
+                    generator=generator,
+                )
             )
             retries_used = 0
 

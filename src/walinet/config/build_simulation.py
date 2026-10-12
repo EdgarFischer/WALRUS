@@ -14,6 +14,7 @@ from .schema_simulation import (
     FWHMCfg,
     LipidCfg,
     LipidProjectionCfg,
+    LogUniformDistributionCfg,
     LogNormalComponentCfg,
     MetaboliteCfg,
     MetaboliteProfileCfg,
@@ -25,6 +26,7 @@ from .schema_simulation import (
     SNRDistributionCfg,
     SubjectSamplingCfg,
     SymmetricMixtureDistributionCfg,
+    UniformDistributionCfg,
     WaterCfg,
     ZeroOrderPhaseCfg,
 )
@@ -403,6 +405,53 @@ def _build_positive_mixture_distribution(
     )
 
 
+def _build_positive_scaling_distribution(
+    raw: dict[str, Any],
+    *,
+    parameter_path: str,
+):
+    """Build either the calibrated mixture or optional log-uniform scaling."""
+    distribution_raw = _require_mapping(
+        raw,
+        "distribution",
+        parameter_path=parameter_path,
+    )
+    distribution_type = _require_string(
+        distribution_raw,
+        "type",
+        parameter_path=f"{parameter_path}.distribution",
+    ).lower()
+
+    if distribution_type == "positive_mixture":
+        return _build_positive_mixture_distribution(
+            raw,
+            parameter_path=parameter_path,
+            normal_mean_key="mean",
+            normal_std_key="std",
+            minimum_key="minimum",
+        )
+
+    if distribution_type == "log_uniform":
+        return LogUniformDistributionCfg(
+            type=distribution_type,
+            minimum=_require_float(
+                distribution_raw,
+                "minimum",
+                parameter_path=f"{parameter_path}.distribution",
+            ),
+            maximum=_require_float(
+                distribution_raw,
+                "maximum",
+                parameter_path=f"{parameter_path}.distribution",
+            ),
+        )
+
+    raise ValueError(
+        f"{parameter_path}.distribution.type must be 'positive_mixture' "
+        f"or 'log_uniform', but found {distribution_type!r}."
+    )
+
+
 def _build_symmetric_mixture_distribution(
     raw: dict[str, Any],
     *,
@@ -490,6 +539,48 @@ def _build_symmetric_mixture_distribution(
         lognormal_tail=LogNormalComponentCfg(
             log_mu=tail_log_mu,
             log_sigma=tail_log_sigma,
+        ),
+    )
+
+
+def _build_uniform_distribution(
+    raw: dict[str, Any],
+    *,
+    parameter_path: str,
+    minimum_key: str,
+    maximum_key: str,
+    linear_scale: float = 1.0,
+) -> UniformDistributionCfg:
+    """Build a continuous uniform distribution and convert its unit."""
+    distribution_raw = _require_mapping(
+        raw,
+        "distribution",
+        parameter_path=parameter_path,
+    )
+    distribution_type = _read_distribution_type(
+        distribution_raw,
+        expected="uniform",
+        parameter_path=parameter_path,
+    )
+    return UniformDistributionCfg(
+        type=distribution_type,
+        minimum=_scale_linear_value(
+            _require_float(
+                distribution_raw,
+                minimum_key,
+                parameter_path=f"{parameter_path}.distribution",
+            ),
+            scale=linear_scale,
+            parameter_path=parameter_path,
+        ),
+        maximum=_scale_linear_value(
+            _require_float(
+                distribution_raw,
+                maximum_key,
+                parameter_path=f"{parameter_path}.distribution",
+            ),
+            scale=linear_scale,
+            parameter_path=parameter_path,
         ),
     )
 
@@ -686,33 +777,72 @@ def build_simulation_config(
         )
 
     # Signed metabolite parameters -------------------------------------------
-    frequency_shift = FrequencyShiftCfg(
-        distribution=_build_symmetric_mixture_distribution(
-            _require_mapping(
-                metabolites_raw,
-                "frequency_shift",
-                parameter_path="metabolites",
-            ),
+    frequency_shift_raw = _require_mapping(
+        metabolites_raw,
+        "frequency_shift",
+        parameter_path="metabolites",
+    )
+    frequency_shift_type = _require_string(
+        _require_mapping(
+            frequency_shift_raw,
+            "distribution",
             parameter_path="metabolites.frequency_shift",
-            center_key="center_ppm",
-            normal_std_key="std_ppm",
-            linear_scale=hz_per_ppm,
+        ),
+        "type",
+        parameter_path="metabolites.frequency_shift.distribution",
+    ).lower()
+    frequency_shift = FrequencyShiftCfg(
+        distribution=(
+            _build_uniform_distribution(
+                frequency_shift_raw,
+                parameter_path="metabolites.frequency_shift",
+                minimum_key="minimum_ppm",
+                maximum_key="maximum_ppm",
+                linear_scale=hz_per_ppm,
+            )
+            if frequency_shift_type == "uniform"
+            else _build_symmetric_mixture_distribution(
+                frequency_shift_raw,
+                parameter_path="metabolites.frequency_shift",
+                center_key="center_ppm",
+                normal_std_key="std_ppm",
+                linear_scale=hz_per_ppm,
+            )
         )
     )
 
     degrees_to_radians_scale = math.pi / 180.0
 
-    zero_order_phase = ZeroOrderPhaseCfg(
-        distribution=_build_symmetric_mixture_distribution(
-            _require_mapping(
-                metabolites_raw,
-                "zero_order_phase",
-                parameter_path="metabolites",
-            ),
+    zero_order_phase_raw = _require_mapping(
+        metabolites_raw,
+        "zero_order_phase",
+        parameter_path="metabolites",
+    )
+    zero_order_phase_type = _require_string(
+        _require_mapping(
+            zero_order_phase_raw,
+            "distribution",
             parameter_path="metabolites.zero_order_phase",
-            center_key="center_deg",
-            normal_std_key="std_deg",
-            linear_scale=degrees_to_radians_scale,
+        ),
+        "type",
+        parameter_path="metabolites.zero_order_phase.distribution",
+    ).lower()
+    zero_order_phase = ZeroOrderPhaseCfg(
+        distribution=(
+            _build_uniform_distribution(
+                zero_order_phase_raw,
+                parameter_path="metabolites.zero_order_phase",
+                minimum_key="minimum_rad",
+                maximum_key="maximum_rad",
+            )
+            if zero_order_phase_type == "uniform"
+            else _build_symmetric_mixture_distribution(
+                zero_order_phase_raw,
+                parameter_path="metabolites.zero_order_phase",
+                center_key="center_deg",
+                normal_std_key="std_deg",
+                linear_scale=degrees_to_radians_scale,
+            )
         )
     )
 
@@ -737,18 +867,38 @@ def build_simulation_config(
     )
 
     # Positive metabolite FWHM ------------------------------------------------
-    fwhm = FWHMCfg(
-        distribution=_build_positive_mixture_distribution(
-            _require_mapping(
-                metabolites_raw,
-                "fwhm",
-                parameter_path="metabolites",
-            ),
+    fwhm_raw = _require_mapping(
+        metabolites_raw,
+        "fwhm",
+        parameter_path="metabolites",
+    )
+    fwhm_type = _require_string(
+        _require_mapping(
+            fwhm_raw,
+            "distribution",
             parameter_path="metabolites.fwhm",
-            normal_mean_key="mean_ppm",
-            normal_std_key="std_ppm",
-            minimum_key="minimum_ppm",
-            linear_scale=hz_per_ppm,
+        ),
+        "type",
+        parameter_path="metabolites.fwhm.distribution",
+    ).lower()
+    fwhm = FWHMCfg(
+        distribution=(
+            _build_uniform_distribution(
+                fwhm_raw,
+                parameter_path="metabolites.fwhm",
+                minimum_key="minimum_ppm",
+                maximum_key="maximum_ppm",
+                linear_scale=hz_per_ppm,
+            )
+            if fwhm_type == "uniform"
+            else _build_positive_mixture_distribution(
+                fwhm_raw,
+                parameter_path="metabolites.fwhm",
+                normal_mean_key="mean_ppm",
+                normal_std_key="std_ppm",
+                minimum_key="minimum_ppm",
+                linear_scale=hz_per_ppm,
+            )
         )
     )
 
@@ -792,16 +942,13 @@ def build_simulation_config(
 
     water = WaterCfg(
         scaling=PositiveScalingDistributionCfg(
-            distribution=_build_positive_mixture_distribution(
+            distribution=_build_positive_scaling_distribution(
                 _require_mapping(
                     water_raw,
                     "scaling",
                     parameter_path="water",
                 ),
                 parameter_path="water.scaling",
-                normal_mean_key="mean",
-                normal_std_key="std",
-                minimum_key="minimum",
             )
         )
     )
@@ -820,16 +967,13 @@ def build_simulation_config(
             parameter_path="lipids",
         ),
         scaling=PositiveScalingDistributionCfg(
-            distribution=_build_positive_mixture_distribution(
+            distribution=_build_positive_scaling_distribution(
                 _require_mapping(
                     lipids_raw,
                     "scaling",
                     parameter_path="lipids",
                 ),
                 parameter_path="lipids.scaling",
-                normal_mean_key="mean",
-                normal_std_key="std",
-                minimum_key="minimum",
             )
         ),
     )

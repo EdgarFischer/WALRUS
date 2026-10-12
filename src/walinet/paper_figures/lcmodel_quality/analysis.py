@@ -167,3 +167,89 @@ def plot_fit_rates(subject_fit_rates, *, figsize=(7.0, 4.2), axis=None):
     ]
     axis.legend(handles=method_handles, frameon=False, title="Method")
     return figure
+
+
+def plot_fit_rates_by_method(
+    subject_fit_rates,
+    *,
+    method_colors,
+    display_labels=None,
+    figsize=(7.0, 4.2),
+    axis=None,
+):
+    """Plot method-colored fit rates with metabolite-specific markers."""
+    import matplotlib.pyplot as plt
+    from matplotlib.lines import Line2D
+
+    methods = list(dict.fromkeys(subject_fit_rates["method"]))
+    subjects = list(dict.fromkeys(subject_fit_rates["subject"]))
+    metabolites = list(dict.fromkeys(subject_fit_rates["metabolite"]))
+    thresholds = subject_fit_rates["crlb_threshold"].unique()
+    if len(thresholds) != 1:
+        raise ValueError("Expected exactly one CRLB threshold")
+    missing_colors = set(methods) - set(method_colors)
+    if missing_colors:
+        raise ValueError(f"No color configured for methods: {sorted(missing_colors)}")
+    if display_labels is None:
+        display_labels = {method: method for method in methods}
+
+    marker_sequence = ("o", "s", "D", "^")
+    if len(metabolites) > len(marker_sequence):
+        raise ValueError("At most four metabolite markers are currently supported")
+    metabolite_markers = dict(zip(metabolites, marker_sequence))
+
+    if axis is None:
+        figure, axis = plt.subplots(figsize=figsize, constrained_layout=True)
+    else:
+        figure = axis.figure
+
+    x = np.arange(len(methods), dtype=float)
+    offsets = np.linspace(-0.12, 0.12, len(metabolites))
+    for method_index, method in enumerate(methods):
+        subset = subject_fit_rates[subject_fit_rates.method == method]
+        for metabolite_index, metabolite in enumerate(metabolites):
+            indexed = subset[subset.metabolite == metabolite].set_index("subject")
+            values = indexed["fit_rate_percent"].to_numpy(dtype=float)
+            if values.size == 0:
+                continue
+            yerr = values.std(ddof=1) if values.size > 1 else 0.0
+            axis.errorbar(
+                method_index + offsets[metabolite_index],
+                values.mean(),
+                yerr=yerr,
+                fmt=metabolite_markers[metabolite],
+                markersize=8,
+                capsize=4,
+                linewidth=1.6,
+                color=method_colors[method],
+                markerfacecolor=method_colors[method],
+                markeredgecolor=method_colors[method],
+                zorder=2,
+            )
+
+    axis.set_xticks(x, [display_labels.get(method, method) for method in methods])
+    axis.set_ylabel("Fit rate [%]")
+    axis.set_title(f"LCModel fit rate (CRLB ≤ {float(thresholds[0]):g}%)")
+    axis.margins(x=0.15, y=0.15)
+    axis.spines[["top", "right"]].set_visible(False)
+    axis.grid(axis="y", alpha=0.2)
+    metabolite_handles = [
+        Line2D(
+            [0],
+            [0],
+            marker=metabolite_markers[metabolite],
+            linestyle="none",
+            markerfacecolor="0.35",
+            markeredgecolor="0.35",
+            markersize=8,
+            label=metabolite,
+        )
+        for metabolite in metabolites
+    ]
+    axis.legend(
+        handles=metabolite_handles,
+        frameon=False,
+        title="Metabolite",
+        ncols=2,
+    )
+    return figure

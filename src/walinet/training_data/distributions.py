@@ -9,8 +9,10 @@ from typing import TypeAlias
 import torch
 
 from walinet.config.schema_simulation import (
+    LogUniformDistributionCfg,
     PositiveMixtureDistributionCfg,
     SymmetricMixtureDistributionCfg,
+    UniformDistributionCfg,
 )
 
 
@@ -26,8 +28,10 @@ SIGNED_NEGATIVE_TAIL_WEIGHT = 0.25
 TensorParameter: TypeAlias = float | int | torch.Tensor
 ShapeLike: TypeAlias = int | Sequence[int] | torch.Size
 DistributionCfg: TypeAlias = (
-    PositiveMixtureDistributionCfg
+    LogUniformDistributionCfg
+    | PositiveMixtureDistributionCfg
     | SymmetricMixtureDistributionCfg
+    | UniformDistributionCfg
 )
 
 
@@ -631,6 +635,30 @@ def sample_positive_mixture(
     )
 
 
+def sample_log_uniform(
+    *,
+    distribution: LogUniformDistributionCfg,
+    shape: ShapeLike,
+    device: torch.device | str,
+    dtype: torch.dtype,
+    generator: torch.Generator,
+) -> torch.Tensor:
+    """Sample values uniformly in logarithmic space."""
+    log_values = sample_uniform(
+        minimum=torch.log(
+            torch.tensor(distribution.minimum, dtype=dtype, device=device)
+        ),
+        maximum=torch.log(
+            torch.tensor(distribution.maximum, dtype=dtype, device=device)
+        ),
+        shape=shape,
+        device=device,
+        dtype=dtype,
+        generator=generator,
+    )
+    return torch.exp(log_values).contiguous()
+
+
 def sample_symmetric_mixture_parameters(
     *,
     center: TensorParameter,
@@ -770,6 +798,25 @@ def sample_distribution(
     max_resampling_rounds: int = 1024,
 ) -> torch.Tensor:
     """Dispatch one validated simulation distribution configuration."""
+    if isinstance(distribution, UniformDistributionCfg):
+        return sample_uniform(
+            minimum=distribution.minimum,
+            maximum=distribution.maximum,
+            shape=shape,
+            device=device,
+            dtype=dtype,
+            generator=generator,
+        )
+
+    if isinstance(distribution, LogUniformDistributionCfg):
+        return sample_log_uniform(
+            distribution=distribution,
+            shape=shape,
+            device=device,
+            dtype=dtype,
+            generator=generator,
+        )
+
     if isinstance(
         distribution,
         PositiveMixtureDistributionCfg,

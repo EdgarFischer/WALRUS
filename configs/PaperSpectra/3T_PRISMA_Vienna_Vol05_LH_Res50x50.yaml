@@ -1,0 +1,24 @@
+scanner: 3T
+subject: Res50x50
+coordinate_space: numpy_mrsi_xyz
+voxels:
+- label: '1'
+  index:
+  - 24
+  - 29
+  - 16
+- label: '2'
+  index:
+  - 14
+  - 33
+  - 16
+- label: '3'
+  index:
+  - 21
+  - 16
+  - 5
+- label: '4'
+  index:
+  - 43
+  - 21
+  - 5

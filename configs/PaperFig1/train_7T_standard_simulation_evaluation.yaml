@@ -1,0 +1,48 @@
+run:
+  name: "PaperFig1_standard_simulation_evaluation"
+  seed: 42
+  gpu: 3
+
+data:
+  base_dir: "../../data/7T/B0corrected_wo_LipidMask"
+  train_subjects: ["Brisbane/Vol3"]
+  val_subjects: ["UCSF/Vol1"]
+  # Immutable snapshot used by the original quantitative evaluation.
+  simulation_config: "../../models/UNet_ablation/configs/simulation/7T_on_the_fly.yaml"
+  resources:
+    version: "water_lipid_v1"
+    filename: "TrainData/SimulationResources_{version}.h5"
+
+output:
+  base_dir: "../../models"
+  overwrite: false
+
+training:
+  batch_size: 2000
+  epochs: 1
+  n_batches: 1
+  verbose: false
+
+validation:
+  seed: 12345
+  n_spectra: 1
+  batch_size: 1
+
+optim:
+  lr: 0.0002
+
+scheduler:
+  milestones: [1]
+  gamma: 0.5
+
+model:
+  architecture: "unet"
+  n_layers: 4
+  n_filters: 20
+  in_channels: 2
+  out_channels: 2
+  dropout: 0.0
+
+checkpoint:
+  preload: false
+  preload_model: ""

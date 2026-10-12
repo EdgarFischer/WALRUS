@@ -84,8 +84,25 @@ def _build_common_simulation(config: EvaluationConfig, device: torch.device):
         config_dir=config.training_config.parent,
     )
     simulation_path = Path(train_cfg.data.simulation_config).resolve()
+    simulation_raw = _load_yaml(simulation_path)
+    # Model snapshots retain paths relative to the original central config
+    # directory. Relocate files only when those archived relative paths no
+    # longer resolve; all numerical simulation settings remain untouched.
+    basis_path = Path(simulation_raw["basis"]["library"])
+    if not basis_path.is_absolute() and not (simulation_path.parent / basis_path).resolve().is_file():
+        project_root = Path(__file__).resolve().parents[4]
+        relocated_basis = project_root / "MetabModes/LCModelBasis/processed" / basis_path.name
+        if relocated_basis.is_file():
+            simulation_raw["basis"]["library"] = str(relocated_basis)
+    for profile in simulation_raw.get("metabolites", {}).get("profiles", []):
+        profile_path = Path(profile["config"])
+        if profile_path.is_absolute() or (simulation_path.parent / profile_path).resolve().is_file():
+            continue
+        relocated_profile = simulation_path.parent.parent / "dependencies" / profile_path.name
+        if relocated_profile.is_file():
+            profile["config"] = str(relocated_profile)
     simulation_cfg = build_simulation_config(
-        _load_yaml(simulation_path),
+        simulation_raw,
         config_dir=simulation_path.parent,
     )
     if not simulation_cfg.lipid_projection.enabled:
@@ -119,9 +136,17 @@ def _subject_simulator(
     resource_filename: str,
     device: torch.device,
 ) -> SpectrumSimulator:
+    resource_subject = subject
+    expected_path = Path(train_cfg.data.base_dir) / subject / resource_filename
+    if not expected_path.is_file() and "_" in subject:
+        subject_name, site = subject.rsplit("_", 1)
+        current_name = f"{site}/{subject_name}"
+        current_path = Path(train_cfg.data.base_dir) / current_name / resource_filename
+        if current_path.is_file():
+            resource_subject = current_name
     pool = load_simulation_pool(
         base_dir=train_cfg.data.base_dir,
-        subjects=[subject],
+        subjects=[resource_subject],
         resource_filename=resource_filename,
         target_n_timepoints=simulation_cfg.acquisition.n_timepoints,
         expected_bandwidth_hz=simulation_cfg.acquisition.bandwidth_hz,

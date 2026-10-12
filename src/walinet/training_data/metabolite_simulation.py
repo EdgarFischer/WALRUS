@@ -17,6 +17,7 @@ from walinet.config.schema_simulation import (
 from walinet.training_data.distributions import (
     sample_distribution,
     sample_positive_mixture_parameters,
+    sample_truncated_normal,
     sample_uniform,
     validate_generator_device,
 )
@@ -32,7 +33,7 @@ VOIGT_LORENTZ_SQUARED_COEFFICIENT = 0.2166
 @dataclass(frozen=True)
 class MetaboliteSamplingTable:
     """
-    One positive-mixture metabolite profile aligned with PreparedBasis.names.
+    One metabolite sampling profile aligned with PreparedBasis.names.
 
     All parameter tensors have shape ``(n_basis_components,)``. Disabled
     basis components contain safe placeholder parameters and are tracked by
@@ -53,6 +54,7 @@ class MetaboliteSamplingTable:
     log_sigmas: torch.Tensor
 
     minimums: torch.Tensor
+    truncated_normal_mask: torch.Tensor
     enabled_mask: torch.Tensor
 
     @property
@@ -170,7 +172,7 @@ def load_metabolite_sampling_table(
     device: torch.device | str,
 ) -> MetaboliteSamplingTable:
     """
-    Load one positive-mixture metabolite profile and align it with the basis.
+    Load one metabolite profile and align it with the basis.
 
     Required distribution layout for every enabled metabolite::
 
@@ -215,10 +217,15 @@ def load_metabolite_sampling_table(
         )
     ).strip().lower()
 
-    if default_distribution != "positive_mixture":
+    supported_distributions = {
+        "positive_mixture",
+        "truncated_normal",
+    }
+
+    if default_distribution not in supported_distributions:
         raise ValueError(
-            "sampling.default_distribution must be "
-            "'positive_mixture', but found "
+            "sampling.default_distribution must be one of "
+            f"{sorted(supported_distributions)}, but found "
             f"{default_distribution!r}.\n"
             f"Profile: {path}"
         )
@@ -241,6 +248,7 @@ def load_metabolite_sampling_table(
     log_mus = np.zeros(n_basis_components, dtype=np.float32)
     log_sigmas = np.zeros(n_basis_components, dtype=np.float32)
     minimums = np.zeros(n_basis_components, dtype=np.float32)
+    truncated_normal_mask = np.zeros(n_basis_components, dtype=bool)
     enabled_mask = np.zeros(n_basis_components, dtype=bool)
 
     active_config_names: list[str] = []
@@ -306,15 +314,18 @@ def load_metabolite_sampling_table(
             distribution_raw.get("type", default_distribution)
         ).strip().lower()
 
-        if distribution_type != "positive_mixture":
+        if distribution_type not in supported_distributions:
             raise ValueError(
-                f"{parameter_path}.type must be 'positive_mixture', "
+                f"{parameter_path}.type must be one of "
+                f"{sorted(supported_distributions)}, "
                 f"but found {distribution_type!r}.\n"
                 f"Profile: {path}"
             )
 
-        normal_raw = distribution_raw.get("normal")
-        lognormal_raw = distribution_raw.get("lognormal")
+        if distribution_type == "positive_mixture":
+            normal_raw = distribution_raw.get("normal")
+        else:
+            normal_raw = distribution_raw
 
         if not isinstance(normal_raw, dict):
             raise TypeError(
@@ -322,36 +333,50 @@ def load_metabolite_sampling_table(
                 f"Profile: {path}"
             )
 
-        if not isinstance(lognormal_raw, dict):
-            raise TypeError(
-                f"{parameter_path}.lognormal must be a mapping.\n"
-                f"Profile: {path}"
-            )
-
         normal_mean = _require_profile_float(
             normal_raw,
             "mean",
-            parameter_path=f"{parameter_path}.normal",
+            parameter_path=(
+                f"{parameter_path}.normal"
+                if distribution_type == "positive_mixture"
+                else parameter_path
+            ),
             profile_path=path,
         )
         normal_std = _require_profile_float(
             normal_raw,
             "std",
-            parameter_path=f"{parameter_path}.normal",
+            parameter_path=(
+                f"{parameter_path}.normal"
+                if distribution_type == "positive_mixture"
+                else parameter_path
+            ),
             profile_path=path,
         )
-        log_mu = _require_profile_float(
-            lognormal_raw,
-            "log_mu",
-            parameter_path=f"{parameter_path}.lognormal",
-            profile_path=path,
-        )
-        log_sigma = _require_profile_float(
-            lognormal_raw,
-            "log_sigma",
-            parameter_path=f"{parameter_path}.lognormal",
-            profile_path=path,
-        )
+        if distribution_type == "positive_mixture":
+            lognormal_raw = distribution_raw.get("lognormal")
+            if not isinstance(lognormal_raw, dict):
+                raise TypeError(
+                    f"{parameter_path}.lognormal must be a mapping.\n"
+                    f"Profile: {path}"
+                )
+            log_mu = _require_profile_float(
+                lognormal_raw,
+                "log_mu",
+                parameter_path=f"{parameter_path}.lognormal",
+                profile_path=path,
+            )
+            log_sigma = _require_profile_float(
+                lognormal_raw,
+                "log_sigma",
+                parameter_path=f"{parameter_path}.lognormal",
+                profile_path=path,
+            )
+        else:
+            # Safe placeholders; the truncated-normal sampling path does not
+            # use lognormal parameters.
+            log_mu = 0.0
+            log_sigma = 0.0
         minimum = _require_profile_float(
             distribution_raw,
             "minimum",
@@ -378,13 +403,13 @@ def load_metabolite_sampling_table(
                 f"Profile: {path}"
             )
 
-        if log_sigma < 0:
+        if distribution_type == "positive_mixture" and log_sigma < 0:
             raise ValueError(
                 f"{parameter_path}.lognormal.log_sigma must be >= 0.\n"
                 f"Profile: {path}"
             )
 
-        if log_sigma == 0:
+        if distribution_type == "positive_mixture" and log_sigma == 0:
             try:
                 constant_lognormal_value = math.exp(log_mu)
             except OverflowError as error:
@@ -408,6 +433,9 @@ def load_metabolite_sampling_table(
         log_mus[basis_index] = log_mu
         log_sigmas[basis_index] = log_sigma
         minimums[basis_index] = minimum
+        truncated_normal_mask[basis_index] = (
+            distribution_type == "truncated_normal"
+        )
         enabled_mask[basis_index] = True
 
         active_config_names.append(str(config_name))
@@ -430,6 +458,9 @@ def load_metabolite_sampling_table(
         log_mus=torch.from_numpy(log_mus).to(device=device),
         log_sigmas=torch.from_numpy(log_sigmas).to(device=device),
         minimums=torch.from_numpy(minimums).to(device=device),
+        truncated_normal_mask=torch.from_numpy(
+            truncated_normal_mask
+        ).to(device=device),
         enabled_mask=torch.from_numpy(enabled_mask).to(device=device),
     )
 
@@ -560,6 +591,14 @@ class MetaboliteSimulator:
         self.profile_minimums = torch.stack(
             [
                 table.minimums
+                for table in self.sampling_tables
+            ],
+            dim=0,
+        ).contiguous()
+
+        self.profile_truncated_normal_masks = torch.stack(
+            [
+                table.truncated_normal_mask
                 for table in self.sampling_tables
             ],
             dim=0,
@@ -847,14 +886,17 @@ class MetaboliteSimulator:
         generator: torch.Generator,
     ) -> torch.Tensor:
         """
-        Sample independent metabolite concentrations from the shared
-        positive 50/50 mixture model.
+        Sample independent metabolite concentrations from the configured
+        positive distribution.
 
-        Every enabled metabolite uses
+        Existing profiles use
 
             0.5 * TruncatedNormal(normal_mean, normal_std)
             +
             0.5 * LogNormal(log_mu, log_sigma).
+
+        A metabolite configured as ``truncated_normal`` instead uses only
+        ``TruncatedNormal(normal_mean, normal_std)``.
 
         The parameter tensors are selected from the sampled metabolite
         profile and passed to the same centralized sampler used for FWHM,
@@ -900,17 +942,51 @@ class MetaboliteSimulator:
             profile_indices,
         )
 
-        concentrations = sample_positive_mixture_parameters(
-            normal_mean=normal_means,
-            normal_std=normal_stds,
-            log_mu=log_mus,
-            log_sigma=log_sigmas,
-            minimum=minimums,
-            shape=output_shape,
-            device=self.device,
-            dtype=torch.float32,
-            generator=generator,
+        truncated_normal_mask = (
+            self.profile_truncated_normal_masks.index_select(
+                0,
+                profile_indices,
+            )
         )
+
+        if bool(torch.all(truncated_normal_mask | ~enabled_mask)):
+            concentrations = sample_truncated_normal(
+                mean=normal_means,
+                std=normal_stds,
+                minimum=minimums,
+                shape=output_shape,
+                device=self.device,
+                dtype=torch.float32,
+                generator=generator,
+            )
+        else:
+            concentrations = sample_positive_mixture_parameters(
+                normal_mean=normal_means,
+                normal_std=normal_stds,
+                log_mu=log_mus,
+                log_sigma=log_sigmas,
+                minimum=minimums,
+                shape=output_shape,
+                device=self.device,
+                dtype=torch.float32,
+                generator=generator,
+            )
+
+            if bool(torch.any(truncated_normal_mask)):
+                truncated_values = sample_truncated_normal(
+                    mean=normal_means,
+                    std=normal_stds,
+                    minimum=minimums,
+                    shape=output_shape,
+                    device=self.device,
+                    dtype=torch.float32,
+                    generator=generator,
+                )
+                concentrations = torch.where(
+                    truncated_normal_mask,
+                    truncated_values,
+                    concentrations,
+                )
 
         concentrations = torch.where(
             enabled_mask,

@@ -1,20 +1,20 @@
 run:
-  name: "YNet_ablation_Seed_2"
-  seed: 1
-  gpu: 2
+  name: "WALINET-Style"
+  seed: 42
+  gpu: 1
 
 data:
   base_dir: "../../data/7T/B0corrected_wo_LipidMask"
 
-  train_subjects: ['Vol3_Brisbane', 'Vol4_Brisbane', 'Vol5_Brisbane', 'Vol6_Brisbane', 'Vol2_London', 'Vol3_London', 'Vol4_London', 'Vol5_London', 'Vol6', 'Vol7', 'Vol8', 'Vol9']
-  val_subjects: ['Vol5', 'Vol1_Brisbane', 'Vol1_London']
+  train_subjects: ['Brisbane/Vol3', 'Brisbane/Vol4', 'Brisbane/Vol5', 'Brisbane/Vol6', 'London/Vol2', 'London/Vol3', 'London/Vol4', 'London/Vol5', 'Vienna/Vol6', 'Vienna/Vol7', 'Vienna/Vol8', 'Vienna/Vol9']
+  val_subjects: ['Vienna/Vol5', 'Brisbane/Vol1', 'London/Vol1']
 
-  simulation_config: "../Simulation/7T_on_the_fly.yaml"
+  simulation_config: "../Simulation/7T_on_the_fly_WALINET_STYLE.yaml"
 
   resources:
     version: "water_lipid_v1"
     filename: "TrainData/SimulationResources_{version}.h5"
-
+    
 output:
   base_dir: "../../models"
   overwrite: false

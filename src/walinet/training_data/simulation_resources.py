@@ -13,6 +13,30 @@ from walinet.config.schema import TrainConfig
 from walinet.config.schema_simulation import SimulationConfig
 
 
+def _subject_names_match(
+    *,
+    requested_subject: str,
+    stored_subject: str,
+) -> bool:
+    """Match current ``site/subject`` paths to legacy HDF5 subject names."""
+    requested = Path(requested_subject)
+    requested_normalized = requested.as_posix()
+
+    if stored_subject == requested_normalized:
+        return True
+
+    parts = requested.parts
+    if len(parts) != 2:
+        return False
+
+    site, subject = parts
+    legacy_aliases = {
+        subject,
+        f"{subject}_{site}",
+    }
+    return stored_subject in legacy_aliases
+
+
 @dataclass(frozen=True)
 class SimulationPool:
     """
@@ -692,7 +716,10 @@ def _load_subject_resources(
                 )
             )
 
-            if stored_subject != subject:
+            if not _subject_names_match(
+                requested_subject=subject,
+                stored_subject=stored_subject,
+            ):
                 raise ValueError(
                     "Subject name in the HDF5 file does not match "
                     "the requested subject:\n"

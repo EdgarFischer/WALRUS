@@ -756,7 +756,13 @@ def load_calibration_maps(subject_dirs, suffix=".nii.gz"):
     data = {}
 
     for subject_dir in map(Path, subject_dirs):
-        subject_id = f"{subject_dir.parent.name}/{subject_dir.name}"
+        if subject_dir.name.startswith("LCModel"):
+            subject_id = (
+                f"{subject_dir.parent.parent.name}/"
+                f"{subject_dir.parent.name}"
+            )
+        else:
+            subject_id = f"{subject_dir.parent.name}/{subject_dir.name}"
         orig_dir = subject_dir / "maps" / "Orig"
 
         metabolite_paths = sorted(

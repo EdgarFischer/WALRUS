@@ -1,0 +1,128 @@
+version: 2
+
+description: >
+  WALINET-style metabolite concentrations. Every enabled metabolite is
+  sampled independently from N(1, 5^2); values at or below zero are
+  rejected and resampled.
+
+sampling:
+  independent: true
+  default_distribution: truncated_normal
+
+walinet_distribution: &walinet_distribution
+  type: truncated_normal
+  mean: 1.0
+  std: 5.0
+  minimum: 0.0
+
+metabolites:
+  Act:
+    enabled: false
+    basis_component: Act
+
+  Ala:
+    enabled: false
+    basis_component: Ala
+
+  Asp:
+    enabled: true
+    basis_component: Asp
+    distribution: *walinet_distribution
+
+  BHB:
+    enabled: false
+    basis_component: null
+    unavailable_reason: Not present in the current LCModel basis
+
+  Cr:
+    enabled: true
+    basis_component: Cr
+    distribution: *walinet_distribution
+
+  GABA:
+    enabled: true
+    basis_component: GABA
+    distribution: *walinet_distribution
+
+  Glc:
+    enabled: true
+    basis_component: Glc
+    distribution: *walinet_distribution
+
+  Gln:
+    enabled: true
+    basis_component: Gln
+    distribution: *walinet_distribution
+
+  Glu:
+    enabled: true
+    basis_component: Glu
+    distribution: *walinet_distribution
+
+  Gly:
+    enabled: false
+    basis_component: Gly
+
+  GPC:
+    enabled: true
+    basis_component: GPC
+    distribution: *walinet_distribution
+
+  GSH:
+    enabled: true
+    basis_component: GSH
+    distribution: *walinet_distribution
+
+  Ins:
+    enabled: true
+    basis_component: Ins
+    distribution: *walinet_distribution
+
+  Lac:
+    enabled: false
+    basis_component: Lac
+
+  NAA:
+    enabled: true
+    basis_component: NAA
+    distribution: *walinet_distribution
+
+  NAAG:
+    enabled: true
+    basis_component: NAAG
+    distribution: *walinet_distribution
+
+  PCh:
+    enabled: true
+    basis_component: PCh
+    distribution: *walinet_distribution
+
+  PCr:
+    enabled: true
+    basis_component: PCr
+    distribution: *walinet_distribution
+
+  Pyr:
+    enabled: false
+    basis_component: null
+    unavailable_reason: Not present in the current LCModel basis
+
+  Scy:
+    enabled: true
+    basis_component: Scyllo
+    distribution: *walinet_distribution
+
+  Suc:
+    enabled: false
+    basis_component: null
+    unavailable_reason: Not present in the current LCModel basis
+
+  Tau:
+    enabled: true
+    basis_component: Tau
+    distribution: *walinet_distribution
+
+  THG:
+    enabled: true
+    basis_component: TwoHG
+    distribution: *walinet_distribution

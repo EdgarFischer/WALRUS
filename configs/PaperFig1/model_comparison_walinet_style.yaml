@@ -1,0 +1,22 @@
+training_config: "../Training/train_7T.yaml"
+device: "cuda:0"
+
+simulation:
+  subjects:
+    - "Vol1_UCSF"
+    - "Vol2_UCSF"
+    - "Vol3_UCSF"
+    - "Vol4_UCSF"
+    - "Vol5_UCSF"
+  n_spectra_per_subject: 100000
+  batch_size: 1000
+  seed: 20260908
+
+models:
+  - name: "WALINET_style"
+    family: "ynet"
+    path: "../../models/WALINET-Style"
+    checkpoint: "model_best.pt"
+
+output:
+  path: "../../results/PaperFig1/model_comparison_7T_WALINET_style.h5"
