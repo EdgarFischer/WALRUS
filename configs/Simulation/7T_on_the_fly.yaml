@@ -35,7 +35,7 @@ basis:
 
 metabolites:
   profiles:
-    - config: "Metabos_healthy_7T_WALINET_Style.yaml" #"Metabos_healthy_7T_2sigma.yaml"
+    - config: "Metabos_healthy_7T_2sigma.yaml" #"Metabos_healthy_7T_2sigma.yaml"
       probability: 1
     
     #- config: "Metabos_tumor_7T_2sigma.yaml"

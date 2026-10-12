@@ -15,7 +15,7 @@ data:
     version: "water_lipid_v1"
     filename: "TrainData/SimulationResources_{version}.h5"
     
-ooutput:
+output:
   base_dir: "../../models"
   overwrite: false
 

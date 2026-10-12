@@ -34,7 +34,6 @@ WALRUS/
 │   ├── Simulation/          simulator and distribution configs
 │   ├── Training/            model-training configs
 │   └── PaperFig1/           evaluation configs for paper figures
-├── docker/                  container build/launch files and dependencies
 ├── docs/                    user-facing documentation
 ├── scripts/                 command-line workflows
 │   ├── SimulationScripts/   training-data, basis, water/lipid utilities
@@ -57,17 +56,19 @@ Local datasets, generated outputs, fitted maps, graphics, metabolite-mode resour
 
 ## Installation
 
-The historical recommended environment is the Docker setup:
+The recommended setup is a Python virtual environment:
 
 ```bash
-bash docker/build_docker.sh
-bash docker/launch_docker.sh
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
 ```
 
-For an existing Python environment, install the packages listed in:
+If you already use an existing environment, install the same dependency set from:
 
 ```text
-docker/requirements.txt
+requirements.txt
 ```
 
 During development, run commands from the repository root and ensure that `src/` is on the Python path. `pytest.ini` does this automatically for tests.

@@ -37,6 +37,7 @@ events.out.tfevents.*
 DataUsedForTraining.txt
 loss.txt
 models/
+docker/
 *.png
 !Preview.png
 *.pdf
