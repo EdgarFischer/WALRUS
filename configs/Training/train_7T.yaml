@@ -1,5 +1,5 @@
 run:
-  name: "WALINET-Style"
+  name: "7T"
   seed: 42
   gpu: 1
 
@@ -9,22 +9,22 @@ data:
   train_subjects: ['Brisbane/Vol3', 'Brisbane/Vol4', 'Brisbane/Vol5', 'Brisbane/Vol6', 'London/Vol2', 'London/Vol3', 'London/Vol4', 'London/Vol5', 'Vienna/Vol6', 'Vienna/Vol7', 'Vienna/Vol8', 'Vienna/Vol9']
   val_subjects: ['Vienna/Vol5', 'Brisbane/Vol1', 'London/Vol1']
 
-  simulation_config: "../Simulation/7T_on_the_fly_WALINET_STYLE.yaml"
+  simulation_config: "../Simulation/7T_on_the_fly.yaml"
 
   resources:
     version: "water_lipid_v1"
     filename: "TrainData/SimulationResources_{version}.h5"
     
-output:
+ooutput:
   base_dir: "../../models"
   overwrite: false
 
 training:
-  batch_size: 2000
+  batch_size: 950
   epochs: 500
 
   # Number of newly simulated training batches per epoch.
-  n_batches: 285
+  n_batches: 600
 
   # Print information for every individual batch.
   verbose: false
@@ -44,9 +44,9 @@ scheduler:
   gamma: 0.5
 
 model:
-  architecture: "ynet"  # "unet" or "ynet"
-  n_layers: 4
-  n_filters: 16
+  architecture: "unet"  # "unet" or "ynet"
+  n_layers: 6
+  n_filters: 32
   in_channels: 2
   out_channels: 2
   dropout: 0.0

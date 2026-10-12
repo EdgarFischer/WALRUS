@@ -8,7 +8,7 @@ acquisition:
   n_timepoints: 840
 
   # Range of simulated native acquisition lengths.
-  min_acquired_n_timepoints: 840
+  min_acquired_n_timepoints: 420
   max_acquired_n_timepoints: 840
 
   # true:

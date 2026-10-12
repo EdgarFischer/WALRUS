@@ -97,7 +97,7 @@ output:
 
 training:
   batch_size: 1750
-  epochs: 100
+  epochs: 500
 
   # Number of newly simulated training batches per epoch.
   n_batches: 600
@@ -113,10 +113,10 @@ validation:
   batch_size: 3300
 
 optim:
-  lr: 0.000005
+  lr: 0.0002
 
 scheduler:
-  milestones: [100]
+  milestones: [50, 100, 150, 200]
   gamma: 0.5
 
 model:
@@ -130,5 +130,5 @@ model:
 checkpoint:
   # Loads only model weights from:
   # ../../models/<preload_model>/model_last.pt
-  preload: true
-  preload_model: "/workspace/walinet/models/3T_Final_32_Channels"
+  preload: false
+  preload_model: ""
