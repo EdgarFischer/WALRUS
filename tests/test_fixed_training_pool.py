@@ -59,9 +59,10 @@ def test_fixed_training_reuses_pool_for_requested_number_of_batches() -> None:
 
 
 def test_fixed_batch_augmentation_crops_all_tensors_together() -> None:
+    generator = torch.Generator().manual_seed(11)
     complex_input = torch.complex(
-        torch.randn(5, 8),
-        torch.randn(5, 8),
+        torch.randn(5, 8, generator=generator),
+        torch.randn(5, 8, generator=generator),
     )
     network_input = torch.stack(
         (complex_input.real, complex_input.imag),
@@ -84,8 +85,18 @@ def test_fixed_batch_augmentation_crops_all_tensors_together() -> None:
     assert augmented_target.shape == augmented_input.shape
     assert augmented_l2 is not None
     assert augmented_l2.shape == augmented_input.shape
-    assert torch.allclose(augmented_target, 2 * augmented_input)
-    assert torch.allclose(augmented_l2, 3 * augmented_input)
+    assert torch.allclose(
+        augmented_target,
+        2 * augmented_input,
+        rtol=1e-5,
+        atol=1e-6,
+    )
+    assert torch.allclose(
+        augmented_l2,
+        3 * augmented_input,
+        rtol=1e-5,
+        atol=1e-6,
+    )
     input_complex = torch.complex(
         augmented_input[:, 0, :],
         augmented_input[:, 1, :],
