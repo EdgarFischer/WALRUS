@@ -218,17 +218,25 @@ def create_figure(
         )
     if stack_slices:
         figure = plt.figure(figsize=figsize, constrained_layout=False)
-        n_rows = 2 + 2 * len(metabolites)
+        # Keep the overall figure height stable while adding compact headers
+        # that visually separate the Slice A and Slice B map blocks.
+        n_rows = 4 + 2 * len(metabolites)
+        map_row_height = 0.88
         grid = figure.add_gridspec(
             n_rows, n_methods + 2,
-            height_ratios=[1.10, 0.22] + [0.92] * (2 * len(metabolites)),
+            height_ratios=(
+                [1.10, 0.22, 0.13]
+                + [map_row_height] * len(metabolites)
+                + [0.17]
+                + [map_row_height] * len(metabolites)
+            ),
             width_ratios=[0.001] + [1] * n_methods + [0.055],
             wspace=0.001,
-            hspace=0.018,
+            hspace=0.012,
         )
         figure.subplots_adjust(
             left=0.055, right=0.945, bottom=0.025, top=0.975,
-            wspace=0.001, hspace=0.018,
+            wspace=0.001, hspace=0.012,
         )
 
         localizer_axis = figure.add_subplot(grid[0, n_methods // 2 + 1])
@@ -293,11 +301,37 @@ def create_figure(
                       weight="bold")
             axis.axis("off")
 
+        slice_header_rows = (2, 3 + len(metabolites))
+        for header_index, (header_row, slice_label) in enumerate(
+            zip(slice_header_rows, ("A", "B"))
+        ):
+            header_axis = figure.add_subplot(
+                grid[header_row, 1:n_methods + 1]
+            )
+            header_axis.set_xlim(0, 1)
+            header_axis.set_ylim(0, 1)
+            if header_index == 1:
+                header_axis.axhline(
+                    0.90,
+                    color="0.45",
+                    linewidth=0.8,
+                    linestyle=(0, (4, 3)),
+                    clip_on=False,
+                )
+            header_axis.text(
+                0.0, 0.38, f"Slice {slice_label}",
+                ha="left", va="center", weight="bold", fontsize=10,
+            )
+            header_axis.axis("off")
+
         for slice_block, (slice_index, slice_label) in enumerate(
             ((superior_slice, "A"), (inferior_slice, "B"))
         ):
             for metabolite_index, (metabolite, maps) in enumerate(all_maps.items()):
-                row = 2 + slice_block * len(metabolites) + metabolite_index
+                block_start = (
+                    3 if slice_block == 0 else 4 + len(metabolites)
+                )
+                row = block_start + metabolite_index
                 scale_maps = (
                     maps if vmax_reference_index is None
                     else [maps[vmax_reference_index]]
@@ -327,24 +361,22 @@ def create_figure(
                     )
                     if method_index == 0:
                         axis.text(
-                            -0.108, 0.5, f"{metabolite}\n{slice_label}",
+                            -0.108, 0.5, metabolite,
                             ha="center", va="center", rotation=90,
                             weight="bold", transform=axis.transAxes,
                             clip_on=False,
                         )
                     axis.axis("off")
-                if slice_block == 0:
-                    colorbar_axis = figure.add_subplot(
-                        grid[row, -1]
-                    )
-                    colorbar = figure.colorbar(
-                        image, cax=colorbar_axis,
-                        label=f"{metabolite} amplitude [a.u.]",
-                    )
-                    colorbar.locator = MaxNLocator(nbins=2)
-                    colorbar.update_ticks()
-                    colorbar.ax.yaxis.label.set_size(8)
-                    colorbar.ax.tick_params(labelsize=7)
+                colorbar_axis = figure.add_subplot(grid[row, -1])
+                colorbar = figure.colorbar(
+                    image,
+                    cax=colorbar_axis,
+                    label=f"{metabolite} amplitude [a.u.]",
+                )
+                colorbar.locator = MaxNLocator(nbins=2)
+                colorbar.update_ticks()
+                colorbar.ax.yaxis.label.set_size(8)
+                colorbar.ax.tick_params(labelsize=7)
 
         if font_scale != 1.0:
             for text_artist in figure.findobj(match=Text):

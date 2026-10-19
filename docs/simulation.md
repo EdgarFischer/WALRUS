@@ -58,7 +58,35 @@ If a dataset has a different native FID length, resample/crop it before inferenc
 
 ## Water and lipid resources
 
-Water/lipid resources are prepared using scripts in:
+Water/lipid resources must be prepared before an on-the-fly simulator can be
+built. They contain subject-specific isolated water and lipid components and,
+when enabled, lipid projection operators. Start from the acquisition-specific
+config:
+
+```text
+configs/Simulation/3T_water_lipid_v1.yaml
+configs/Simulation/7T_water_lipid_v1.yaml
+```
+
+Set its dataset root, subject list, input/mask paths, acquisition parameters,
+and desired resource version. Then run:
+
+```bash
+python scripts/SimulationScripts/extract_water_lipid.py \
+  configs/Simulation/7T_water_lipid_v1.yaml
+```
+
+The default config layout writes one resource file per subject, for example:
+
+```text
+<subject>/TrainData/SimulationResources_water_lipid_v1.h5
+```
+
+The `data.resources` section of the training config must point to this
+same filename/version. A missing or mismatched resource file prevents the
+simulation system from being constructed.
+
+The preparation utilities live in:
 
 ```text
 scripts/SimulationScripts/
