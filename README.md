@@ -1,7 +1,5 @@
 # WALRUS
 
-# WALRUS
-
 **WALRUS (Water And Lipid Removal Using Spectral Learning)** is a deep learning framework for removing residual water and lipid contamination from proton magnetic resonance spectroscopic imaging (¹H-MRSI) data.
 
 Building on the original WALINET approach, WALRUS introduces a fitting-consistent spectral simulator with empirically calibrated parameter distributions. The simulator combines metabolite signals generated from the same spectral basis used for downstream quantification with water and lipid signals derived from *in vivo* measurements. This enables the generation of diverse, realistic training spectra.
