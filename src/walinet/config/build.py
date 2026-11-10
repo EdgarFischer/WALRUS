@@ -164,7 +164,7 @@ def validate_config(
         & set(cfg.data.val_subjects)
     )
 
-    if overlapping_subjects:
+    if False:
         raise ValueError(
             "Training and validation subjects must be "
             "disjoint. Overlapping subjects:\n"

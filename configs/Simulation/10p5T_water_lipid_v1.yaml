@@ -1,0 +1,40 @@
+version: "water_lipid_v1"
+
+data:
+  base_dir: "../../data/10.5T"
+
+  subjects: [
+    "Measurement26_594", 
+    "Measurement29_612", 
+    "Measurement31_612", 
+    "Measurement34_594"]
+
+  paths:
+    brain_mask: "masks/brain_mask.npy"
+    lipid_mask: "masks/lipid_mask.npy"
+    input_data: "OriginalData/data.npy"
+    output_dir: "TrainData"
+
+acquisition:
+  bandwidth_hz: 2778.0
+  nmr_frequency_hz: 447053391
+
+water_extraction:
+  hsvd_components: 32
+
+  min_frequency_offset_ppm: -0.81 # this means upper bound 4.65 - min_frequency_offset-ppm
+  max_frequency_offset_ppm: 0.51 # this means lower bound 4.65 - max_frequency_offset_ppm
+
+  parallel_jobs: 20
+  slice_batch_size: 3
+
+resources:
+  simulation_resources_filename: "SimulationResources_{version}.h5"
+  overwrite: false
+
+lipid_projection:
+  enabled: false
+  n_timepoints: [840]
+  target: 0.99
+  tol: 0.0001
+  max_iter: 60

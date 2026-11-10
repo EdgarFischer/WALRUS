@@ -4,7 +4,7 @@ set -euo pipefail
 # Wechsel vom Ordner scripts/SimulationScripts zum Projekt-Root.
 cd "$(dirname "$0")/../.."
 
-config_path="configs/Simulation/7T_water_lipid_v1.yaml"
+config_path="configs/Simulation/10p5T_water_lipid_v1.yaml"
 
 log_dir="logs/logs_water_lipid_extraction"
 mkdir -p "$log_dir"

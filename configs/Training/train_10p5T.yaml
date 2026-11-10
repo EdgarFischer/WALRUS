@@ -1,0 +1,58 @@
+run:
+  name: "10p5T_provisional"
+  seed: 42
+  gpu: 1
+
+data:
+  base_dir: "../../data/10.5T"
+
+  train_subjects: ["Measurement26_594", "Measurement29_612", "Measurement31_612", "Measurement34_594"]
+  val_subjects: ["Measurement26_594", "Measurement29_612"]
+
+  simulation_config: "../Simulation/10p5T_on_the_fly.yaml"
+
+  resources:
+    version: "water_lipid_v1"
+    filename: "TrainData/SimulationResources_{version}.h5"
+    
+output:
+  base_dir: "../../models"
+  overwrite: false
+
+training:
+  batch_size: 2000
+  epochs: 500
+
+  # Number of newly simulated training batches per epoch.
+  n_batches: 285
+
+  # Print information for every individual batch.
+  verbose: false
+
+validation:
+  # A fixed synthetic validation dataset is generated once at startup
+  # and reused after every epoch.
+  seed: 12345
+  n_spectra: 35000
+  batch_size: 3300
+
+optim:
+  lr: 0.0002
+
+scheduler:
+  milestones: [50, 100, 150, 200]
+  gamma: 0.5
+
+model:
+  architecture: "unet"  # "unet" or "ynet"
+  n_layers: 4
+  n_filters: 16
+  in_channels: 2
+  out_channels: 2
+  dropout: 0.0
+
+checkpoint:
+  # Loads only model weights from:
+  # ../../models/<preload_model>/model_last.pt
+  preload: false
+  preload_model: ""
