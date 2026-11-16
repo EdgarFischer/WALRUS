@@ -1,0 +1,49 @@
+run:
+  name: "PHIVE_fixed_simulation_resources"
+  seed: 42
+  gpu: 3
+
+data:
+  base_dir: "../../data/7T/B0corrected_wo_LipidMask"
+  train_subjects: ['Brisbane/Vol3', 'Brisbane/Vol4', 'Brisbane/Vol5', 'Brisbane/Vol6', 'London/Vol2', 'London/Vol3', 'London/Vol4', 'London/Vol5', 'Vienna/Vol6', 'Vienna/Vol7', 'Vienna/Vol8', 'Vienna/Vol9']
+  val_subjects: ['Vienna/Vol5', 'Brisbane/Vol1', 'London/Vol1']
+  simulation_config: "../Simulation/7T_on_the_fly.yaml"
+  resources:
+    version: "water_lipid_v1"
+    filename: "TrainData/SimulationResources_{version}.h5"
+
+output:
+  base_dir: "../../models"
+  overwrite: false
+
+# These values satisfy the WALRUS configuration schema. The PHIVE fixed-pool
+# source controls its own sample counts and does not invoke WALRUS training.
+training:
+  batch_size: 950
+  epochs: 1
+  n_batches: 1
+  verbose: false
+
+validation:
+  seed: 12345
+  n_spectra: 1
+  batch_size: 1
+
+optim:
+  lr: 0.0002
+
+scheduler:
+  milestones: [1]
+  gamma: 0.5
+
+model:
+  architecture: "unet"
+  n_layers: 6
+  n_filters: 32
+  in_channels: 2
+  out_channels: 2
+  dropout: 0.0
+
+checkpoint:
+  preload: false
+  preload_model: ""

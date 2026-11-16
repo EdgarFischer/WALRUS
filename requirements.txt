@@ -31,7 +31,8 @@ executing==2.2.0
 fastjsonschema==2.21.1
 filelock==3.18.0
 fonttools==4.57.0
--e git+ssh://git@github.com/mrs-fitting/forD.git@8e32176800bd47a43daaea4c0ee4f0cef9290506#egg=forD
+# forD is an optional sibling project. Install the local checkout separately
+# with: python -m pip install -e ../forD
 fqdn==1.5.1
 frozenlist==1.7.0
 fsspec==2025.3.2
